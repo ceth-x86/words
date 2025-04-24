@@ -9,7 +9,8 @@
                  [ring/ring-core "1.11.0"]
                  [ring/ring-jetty-adapter "1.11.0"]
                  [ring/ring-json "0.5.1"]
-                 [compojure "1.7.0"]]
+                 [compojure "1.7.0"]
+                 [cheshire "5.11.0"]]
   :main ^:skip-aot my-app.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all

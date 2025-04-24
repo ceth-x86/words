@@ -319,6 +319,34 @@ curl -o exported_words.txt http://localhost:3000/api/export
 curl -o search_results.txt "http://localhost:3000/api/export/search?term=app"
 ```
 
+## Testing
+
+The application includes comprehensive test coverage for all components:
+
+### Running Tests
+
+Run all tests with:
+
+```bash
+lein test
+```
+
+Run tests for a specific namespace:
+
+```bash
+lein test my-app.core-test
+```
+
+### Test Coverage
+
+The test suite includes:
+
+- **Core Tests**: Tests for the CLI interface and functions
+
+### Testing Approach
+
+- Core functionality is tested with mocks for database interactions
+
 ## License
 
 Copyright © 2023 FIXME
