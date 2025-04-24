@@ -30,7 +30,7 @@
         VALUES (?, ?, ?, ?, ?)
       " word transcription description translation examples])
       (catch Exception e
-        (println (str "Ошибка при добавлении слова: '" word "'. Возможно, слово уже существует."))
+        (println (str "Error adding word: '" word "'. Word might already exist."))
         (println (.getMessage e))))))
 
 ;; Function to batch import words
@@ -44,12 +44,12 @@
               INSERT INTO words (word, transcription, description, translation, examples)
               VALUES (?, ?, ?, ?, ?)
             " word transcription description translation examples])
-            (println (str "Добавлено слово: '" word "'"))
+            (println (str "Added word: '" word "'"))
             (catch Exception e
-              (println (str "Ошибка при добавлении слова: '" word "'. Возможно, слово уже существует."))
+              (println (str "Error adding word: '" word "'. Word might already exist."))
               (println (.getMessage e))))))
       (catch Exception e
-        (println "Ошибка при импорте слов:")
+        (println "Error importing words:")
         (println (.getMessage e))))))
 
 ;; Function to get all words from the table

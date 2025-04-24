@@ -8,104 +8,104 @@
   (:gen-class))
 
 (defn show-usage []
-  (println "Использование:")
-  (println "  lein run init                   - Инициализировать базу данных")
-  (println "  lein run add \"word\" \"transcription\" \"description\" \"translation\" \"examples\" - Добавить новое слово")
-  (println "  lein run show                   - Показать все слова")
-  (println "  lein run search \"term\"          - Искать слова по запросу")
-  (println "  lein run get \"word\"             - Показать конкретное слово")
-  (println "  lein run update \"word\" \"transcription\" \"description\" \"translation\" \"examples\" - Обновить слово")
-  (println "  lein run delete \"word\"          - Удалить слово")
-  (println "  lein run import \"file_path\"     - Импортировать слова из файла")
-  (println "  lein run export \"file_path\"     - Экспортировать все слова в файл")
-  (println "  lein run export-search \"term\" \"file_path\" - Экспортировать результаты поиска в файл")
-  (println "  lein run server [port]          - Запустить веб-сервер с REST API (по умолчанию порт 3000)"))
+  (println "Usage:")
+  (println "  lein run init                   - Initialize the database")
+  (println "  lein run add \"word\" \"transcription\" \"description\" \"translation\" \"examples\" - Add a new word")
+  (println "  lein run show                   - Show all words")
+  (println "  lein run search \"term\"          - Search for words")
+  (println "  lein run get \"word\"             - Show a specific word")
+  (println "  lein run update \"word\" \"transcription\" \"description\" \"translation\" \"examples\" - Update a word")
+  (println "  lein run delete \"word\"          - Delete a word")
+  (println "  lein run import \"file_path\"     - Import words from a file")
+  (println "  lein run export \"file_path\"     - Export all words to a file")
+  (println "  lein run export-search \"term\" \"file_path\" - Export search results to a file")
+  (println "  lein run server [port]          - Start a web server with REST API (default port 3000)"))
 
 (defn init-database []
-  (println "Инициализация базы данных английских слов...")
+  (println "Initializing English words database...")
   (db/init-db!)
-  (println "База данных успешно инициализирована."))
+  (println "Database successfully initialized."))
 
 (defn add-word [word transcription description translation examples]
-  (println (str "Добавление слова: \"" word "\""))
+  (println (str "Adding word: \"" word "\""))
   (db/insert-word! word transcription description translation examples)
-  (println "Слово успешно добавлено."))
+  (println "Word successfully added."))
 
 (defn format-word [word]
-  (println (str "Слово: " (:word word) 
-                "\nТранскрипция: " (:transcription word) 
-                "\nОписание: " (:description word)
-                "\nПеревод: " (:translation word) 
-                "\nПримеры: " (:examples word)
+  (println (str "Word: " (:word word) 
+                "\nTranscription: " (:transcription word) 
+                "\nDescription: " (:description word)
+                "\nTranslation: " (:translation word) 
+                "\nExamples: " (:examples word)
                 "\n")))
 
 (defn show-words []
-  (println "Список всех английских слов:")
+  (println "List of all English words:")
   (let [words (db/get-all-words)]
     (if (empty? words)
-      (println "База данных пуста.")
+      (println "Database is empty.")
       (doseq [word words]
         (format-word word)))))
 
 (defn get-word [word-str]
-  (println (str "Получение информации о слове: \"" word-str "\""))
+  (println (str "Getting information about word: \"" word-str "\""))
   (if-let [word (db/get-word-by-word word-str)]
     (format-word word)
-    (println (str "Слово \"" word-str "\" не найдено."))))
+    (println (str "Word \"" word-str "\" not found."))))
 
 (defn update-word [word transcription description translation examples]
-  (println (str "Обновление слова: \"" word "\""))
+  (println (str "Updating word: \"" word "\""))
   (if (db/get-word-by-word word)
     (do
       (db/update-word! word transcription description translation examples)
-      (println "Слово успешно обновлено."))
-    (println (str "Слово \"" word "\" не найдено."))))
+      (println "Word successfully updated."))
+    (println (str "Word \"" word "\" not found."))))
 
 (defn delete-word [word]
-  (println (str "Удаление слова: \"" word "\""))
+  (println (str "Deleting word: \"" word "\""))
   (if (db/get-word-by-word word)
     (do
       (db/delete-word! word)
-      (println "Слово успешно удалено."))
-    (println (str "Слово \"" word "\" не найдено."))))
+      (println "Word successfully deleted."))
+    (println (str "Word \"" word "\" not found."))))
 
 (defn search-words [term]
-  (println (str "Поиск слов по запросу: \"" term "\""))
+  (println (str "Searching for words with query: \"" term "\""))
   (let [results (db/search-words term)]
     (if (empty? results)
-      (println "Ничего не найдено.")
+      (println "Nothing found.")
       (do
-        (println (str "Найдено " (count results) " слов:"))
+        (println (str "Found " (count results) " words:"))
         (doseq [word results]
           (format-word word))))))
 
 (defn import-words [file-path]
-  (println (str "Импорт слов из файла: " file-path))
+  (println (str "Importing words from file: " file-path))
   (let [count (imp/import-words-from-file file-path)]
-    (println (str "Процесс импорта завершен. Успешно импортировано слов: " count))))
+    (println (str "Import process completed. Successfully imported words: " count))))
 
 (defn export-words [file-path]
-  (println (str "Экспорт всех слов в файл: " file-path))
+  (println (str "Exporting all words to file: " file-path))
   (let [count (exp/export-words-to-file file-path)]
-    (println (str "Процесс экспорта завершен. Успешно экспортировано слов: " count))))
+    (println (str "Export process completed. Successfully exported words: " count))))
 
 (defn export-search-results [term file-path]
-  (println (str "Экспорт результатов поиска \"" term "\" в файл: " file-path))
+  (println (str "Exporting search results \"" term "\" to file: " file-path))
   (let [count (exp/export-search-results-to-file term file-path)]
-    (println (str "Процесс экспорта завершен. Успешно экспортировано слов: " count))))
+    (println (str "Export process completed. Successfully exported words: " count))))
 
 (defn start-server [port]
   (let [port-num (if port (Integer/parseInt port) 3000)]
-    (println (str "Запуск веб-сервера на порту " port-num "..."))
-    (println "API доступно по адресу: http://localhost:" port-num "/api/")
-    (println "Нажмите Ctrl+C для остановки сервера.")
-    (db/init-db!) ; инициализируем БД при запуске сервера
+    (println (str "Starting web server on port " port-num "..."))
+    (println "API available at: http://localhost:" port-num "/api/")
+    (println "Press Ctrl+C to stop the server.")
+    (db/init-db!) ; initialize the database when starting the server
     (jetty/run-jetty api/app {:port port-num :join? true})))
 
 (defn -main
   "Application entry point"
   [& args]
-  (db/init-db!) ; всегда инициализируем базу данных при запуске
+  (db/init-db!) ; always initialize the database at startup
   
   (cond
     (empty? args)
@@ -117,7 +117,7 @@
     (= (first args) "add")
     (if (>= (count args) 6)
       (add-word (nth args 1) (nth args 2) (nth args 3) (nth args 4) (nth args 5))
-      (println "Ошибка: команда add требует слова, транскрипции, описания, перевода и примеров."))
+      (println "Error: The add command requires a word, transcription, description, translation, and examples."))
     
     (= (first args) "show")
     (show-words)
@@ -125,42 +125,42 @@
     (= (first args) "get")
     (if (>= (count args) 2)
       (get-word (nth args 1))
-      (println "Ошибка: команда get требует указания слова."))
+      (println "Error: The get command requires a word."))
     
     (= (first args) "update")
     (if (>= (count args) 6)
       (update-word (nth args 1) (nth args 2) (nth args 3) (nth args 4) (nth args 5))
-      (println "Ошибка: команда update требует слова, транскрипции, описания, перевода и примеров."))
+      (println "Error: The update command requires a word, transcription, description, translation, and examples."))
     
     (= (first args) "delete")
     (if (>= (count args) 2)
       (delete-word (nth args 1))
-      (println "Ошибка: команда delete требует указания слова."))
+      (println "Error: The delete command requires a word."))
     
     (= (first args) "search")
     (if (>= (count args) 2)
       (search-words (nth args 1))
-      (println "Ошибка: команда search требует поискового запроса."))
+      (println "Error: The search command requires a search query."))
     
     (= (first args) "import")
     (if (>= (count args) 2)
       (import-words (nth args 1))
-      (println "Ошибка: команда import требует пути к файлу."))
+      (println "Error: The import command requires a file path."))
     
     (= (first args) "export")
     (if (>= (count args) 2)
       (export-words (nth args 1))
-      (println "Ошибка: команда export требует пути к файлу."))
+      (println "Error: The export command requires a file path."))
 
     (= (first args) "export-search")
     (if (>= (count args) 3)
       (export-search-results (nth args 1) (nth args 2))
-      (println "Ошибка: команда export-search требует поискового запроса и пути к файлу."))
+      (println "Error: The export-search command requires a search query and a file path."))
     
     (= (first args) "server")
     (start-server (second args))
     
     :else
     (do
-      (println "Неизвестная команда.")
+      (println "Unknown command.")
       (show-usage))))

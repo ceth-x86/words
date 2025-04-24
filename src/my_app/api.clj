@@ -12,7 +12,7 @@
             [my-app.import :as imp]
             [my-app.export :as exp]))
 
-;; Вспомогательные функции для обработки API запросов
+;; Helper functions for API request handling
 
 (defn handle-error [e]
   (let [message (.getMessage e)]
@@ -27,12 +27,12 @@
   {:status 200
    :body data})
 
-;; Обработчики API для операций с базой данных
+;; API handlers for database operations
 
 (defn api-init-db []
   (try
     (db/init-db!)
-    (handle-success {:message "База данных успешно инициализирована"})
+    (handle-success {:message "Database successfully initialized"})
     (catch Exception e
       (handle-error e))))
 
@@ -48,7 +48,7 @@
   (try
     (if-let [word (db/get-word-by-word word-str)]
       (handle-success {:word word})
-      (handle-not-found (str "Слово \"" word-str "\" не найдено")))
+      (handle-not-found (str "Word \"" word-str "\" not found")))
     (catch Exception e
       (handle-error e))))
 
@@ -67,10 +67,10 @@
         (do
           (db/insert-word! word transcription description translation examples)
           (if-let [added-word (db/get-word-by-word word)]
-            (handle-success {:message (str "Слово \"" word "\" успешно добавлено")
+            (handle-success {:message (str "Word \"" word "\" successfully added")
                              :word added-word})
-            (handle-error (Exception. (str "Не удалось получить добавленное слово \"" word "\"")))))
-        (handle-error (Exception. "Обязательные поля: word, translation"))))
+            (handle-error (Exception. (str "Failed to retrieve added word \"" word "\"")))))
+        (handle-error (Exception. "Required fields: word, translation"))))
     (catch Exception e
       (handle-error e))))
 
@@ -81,10 +81,10 @@
         (do 
           (db/update-word! word-str transcription description translation examples)
           (if-let [updated-word (db/get-word-by-word word-str)]
-            (handle-success {:message (str "Слово \"" word-str "\" успешно обновлено")
+            (handle-success {:message (str "Word \"" word-str "\" successfully updated")
                              :word updated-word})
-            (handle-error (Exception. (str "Не удалось получить обновленное слово \"" word-str "\"")))))
-        (handle-not-found (str "Слово \"" word-str "\" не найдено"))))
+            (handle-error (Exception. (str "Failed to retrieve updated word \"" word-str "\"")))))
+        (handle-not-found (str "Word \"" word-str "\" not found"))))
     (catch Exception e
       (handle-error e))))
 
@@ -93,18 +93,18 @@
     (if (db/get-word-by-word word-str)
       (do
         (db/delete-word! word-str)
-        (handle-success {:message (str "Слово \"" word-str "\" успешно удалено")}))
-      (handle-not-found (str "Слово \"" word-str "\" не найдено")))
+        (handle-success {:message (str "Word \"" word-str "\" successfully deleted")}))
+      (handle-not-found (str "Word \"" word-str "\" not found")))
     (catch Exception e
       (handle-error e))))
 
-;; Обработчики API для операций импорта/экспорта
+;; API handlers for import/export operations
 
 (defn read-file-content [file]
   (try
     (slurp (:tempfile file))
     (catch Exception e
-      (throw (Exception. (str "Не удалось прочитать файл: " (.getMessage e)))))))
+      (throw (Exception. (str "Failed to read file: " (.getMessage e)))))))
 
 (defn api-import-words [params]
   (try
@@ -113,9 +113,9 @@
             words-data (imp/parse-words-file content)
             count (count words-data)]
         (db/batch-import-words! words-data)
-        (handle-success {:message (str "Успешно импортировано слов: " count)
+        (handle-success {:message (str "Successfully imported " count " words")
                          :count count}))
-      (handle-error (Exception. "Файл для импорта не предоставлен")))
+      (handle-error (Exception. "Import file not provided")))
     (catch Exception e
       (handle-error e))))
 
@@ -141,10 +141,10 @@
     (catch Exception e
       (handle-error e))))
 
-;; Маршруты API
+;; API Routes
 
 (defroutes app-routes
-  ;; Базовые операции
+  ;; Basic operations
   (GET "/api/words" [] (api-get-all-words))
   (GET "/api/words/:word" [word] (api-get-word word))
   (GET "/api/search" [term] (api-search-words term))
@@ -152,18 +152,18 @@
   (PUT "/api/words/:word" [word :as {body :body}] (api-update-word word body))
   (DELETE "/api/words/:word" [word] (api-delete-word word))
   
-  ;; Инициализация БД
+  ;; DB Initialization
   (POST "/api/init" [] (api-init-db))
   
-  ;; Импорт/Экспорт
+  ;; Import/Export
   (POST "/api/import" {params :params} (api-import-words params))
   (GET "/api/export" [] (api-export-words))
   (GET "/api/export/search" [term] (api-export-search-results term))
   
-  ;; Обработка неизвестных маршрутов
-  (route/not-found {:error "Маршрут не найден"}))
+  ;; Handle unknown routes
+  (route/not-found {:error "Route not found"}))
 
-;; Middleware обертки
+;; Middleware wrappers
 
 (def app
   (-> app-routes

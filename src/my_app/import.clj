@@ -47,10 +47,10 @@
   (try
     (let [file-content (slurp file-path)
           words-data (parse-words-file file-content)]
-      (println (str "Найдено " (count words-data) " слов для импорта."))
+      (println (str "Found " (count words-data) " words for import."))
       (db/batch-import-words! words-data)
       (count words-data))
     (catch Exception e
-      (println (str "Ошибка при импорте из файла " file-path ":"))
+      (println (str "Error importing from file " file-path ":"))
       (println (.getMessage e))
       0))) 

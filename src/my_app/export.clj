@@ -18,12 +18,12 @@
   (try
     (let [words (db/get-all-words)
           formatted-content (format-words-for-export words)]
-      (println (str "Найдено " (count words) " слов для экспорта."))
+      (println (str "Found " (count words) " words for export."))
       (spit file-path formatted-content)
-      (println (str "Слова успешно экспортированы в файл: " file-path))
+      (println (str "Words successfully exported to file: " file-path))
       (count words))
     (catch Exception e
-      (println (str "Ошибка при экспорте в файл " file-path ":"))
+      (println (str "Error exporting to file " file-path ":"))
       (println (.getMessage e))
       0)))
 
@@ -31,11 +31,11 @@
   (try
     (let [words (db/search-words search-term)
           formatted-content (format-words-for-export words)]
-      (println (str "Найдено " (count words) " слов для экспорта."))
+      (println (str "Found " (count words) " words for export."))
       (spit file-path formatted-content)
-      (println (str "Результаты поиска успешно экспортированы в файл: " file-path))
+      (println (str "Search results successfully exported to file: " file-path))
       (count words))
     (catch Exception e
-      (println (str "Ошибка при экспорте результатов поиска в файл " file-path ":"))
+      (println (str "Error exporting search results to file " file-path ":"))
       (println (.getMessage e))
       0))) 
