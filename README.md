@@ -335,6 +335,8 @@ Run tests for a specific namespace:
 
 ```bash
 lein test my-app.core-test
+lein test my-app.db-test
+lein test my-app.db-schema-test
 ```
 
 ### Test Coverage
@@ -342,10 +344,34 @@ lein test my-app.core-test
 The test suite includes:
 
 - **Core Tests**: Tests for the CLI interface and functions
+- **Database Tests**: Tests for database CRUD operations, search functionality, and batch imports
+- **Schema Tests**: Tests for database schema structure, constraints, and data integrity
+
+### Database Testing Strategy
+
+The database tests use a file-based SQLite database in a temporary location, which is:
+- Created before each test
+- Initialized with the appropriate schema
+- Populated with test data
+- Used for testing operations
+- Deleted after tests complete
+
+This approach isolates the tests from the main application database and ensures each test run starts with a clean database state.
+
+### Schema Testing
+
+The schema tests specifically verify:
+- Correct database structure and column types
+- Primary key constraint enforcement
+- NOT NULL constraints
+- Default values (timestamps)
+- Index creation
 
 ### Testing Approach
 
 - Core functionality is tested with mocks for database interactions
+- Database functionality is tested with a real SQLite database in a temporary location
+- Each test is isolated and doesn't affect other tests
 
 ## License
 
