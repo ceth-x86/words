@@ -338,6 +338,8 @@ lein test my-app.core-test
 lein test my-app.db-test
 lein test my-app.db-schema-test
 lein test my-app.api-test
+lein test my-app.export-test
+lein test my-app.import-test
 ```
 
 ### Test Coverage
@@ -348,6 +350,8 @@ The test suite includes:
 - **Database Tests**: Tests for database CRUD operations, search functionality, and batch imports
 - **Schema Tests**: Tests for database schema structure, constraints, and data integrity
 - **API Tests**: Tests for REST API endpoints, request validation, and response formatting
+- **Export Tests**: Tests for word formatting and file export functionality
+- **Import Tests**: Tests for parsing and importing words from formatted text files
 
 ### Database Testing Strategy
 
@@ -379,11 +383,22 @@ The API tests use Ring Mock to simulate HTTP requests and verify:
 - Error handling
 - Content types and download headers for export functionality
 
+### Export/Import Testing Strategy
+
+The export and import tests verify:
+- Word formatting according to the specified format
+- File writing and reading operations
+- Error handling for file operations
+- Parsing of formatted text content
+- Extraction of word components (word, transcription, translation, etc.)
+- Handling of edge cases (empty inputs, invalid formats)
+
 ### Testing Approach
 
 - Core functionality is tested with mocks for database interactions
 - Database functionality is tested with a real SQLite database in a temporary location
 - API endpoints are tested with simulated HTTP requests using ring-mock
+- Export/import functionality is tested with temporary files that are created and deleted during tests
 - Each test is isolated and doesn't affect other tests
 
 ## License
