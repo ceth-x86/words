@@ -113,4 +113,188 @@
 (deftest test-delete-word!
   (testing "delete-word! removes a word and its associated meanings and examples from the database"
     (db/delete-word! "apple")
-    (is (nil? (db/get-word-by-word "apple"))))) 
+    (is (nil? (db/get-word-by-word "apple")))))
+
+;; Collection tests
+
+(deftest test-create-collection
+  (testing "create-collection! adds a new collection to the database"
+    (is (db/create-collection! "Test Collection" "A collection for testing"))
+    (let [collections (db/get-all-collections)
+          collection (first (filter #(= "Test Collection" (:name %)) collections))]
+      (is (not (nil? collection)))
+      (is (= "A collection for testing" (:description collection))))))
+
+(deftest test-get-all-collections
+  (testing "get-all-collections returns all collections"
+    (db/create-collection! "Collection 1" "First collection")
+    (db/create-collection! "Collection 2" "Second collection")
+    (let [collections (db/get-all-collections)]
+      (is (>= (count collections) 2))
+      (is (some #(= "Collection 1" (:name %)) collections))
+      (is (some #(= "Collection 2" (:name %)) collections)))))
+
+(deftest test-get-collection-by-id
+  (testing "get-collection-by-id returns the correct collection"
+    (db/create-collection! "Test Collection" "A collection for testing")
+    (let [collections (db/get-all-collections)
+          collection (first (filter #(= "Test Collection" (:name %)) collections))
+          collection-id (:id collection)
+          retrieved-collection (db/get-collection-by-id collection-id)]
+      (is (= "Test Collection" (:name retrieved-collection)))
+      (is (= "A collection for testing" (:description retrieved-collection))))))
+
+(deftest test-get-collection-by-name
+  (testing "get-collection-by-name returns the correct collection"
+    (db/create-collection! "Named Collection" "A named collection for testing")
+    (let [collection (db/get-collection-by-name "Named Collection")]
+      (is (= "Named Collection" (:name collection)))
+      (is (= "A named collection for testing" (:description collection))))))
+
+(deftest test-update-collection
+  (testing "update-collection! updates a collection's information"
+    (db/create-collection! "Update Test" "Original description")
+    (let [collections (db/get-all-collections)
+          collection (first (filter #(= "Update Test" (:name %)) collections))
+          collection-id (:id collection)]
+      (is (db/update-collection! collection-id "Updated Name" "Updated description"))
+      (let [updated-collection (db/get-collection-by-id collection-id)]
+        (is (= "Updated Name" (:name updated-collection)))
+        (is (= "Updated description" (:description updated-collection)))))))
+
+(deftest test-delete-collection
+  (testing "delete-collection! removes a collection from the database"
+    (db/create-collection! "To Delete" "Collection to be deleted")
+    (let [collections (db/get-all-collections)
+          collection (first (filter #(= "To Delete" (:name %)) collections))
+          collection-id (:id collection)]
+      (db/delete-collection! collection-id)
+      (is (nil? (db/get-collection-by-id collection-id))))))
+
+(deftest test-add-word-to-collection
+  (testing "add-word-to-collection! adds a word to a collection"
+    (db/insert-word! "orange" "ˈɔrɪndʒ" "A round fruit with orange skin" "апельсин" "I ate an orange.")
+    (db/create-collection! "Fruits" "Collection of fruits")
+    (let [word (db/get-word-by-word "orange")
+          word-id (:id word)
+          collections (db/get-all-collections)
+          collection (first (filter #(= "Fruits" (:name %)) collections))
+          collection-id (:id collection)]
+      (is (db/add-word-to-collection! word-id collection-id))
+      (let [collection-words (db/get-collection-words collection-id)]
+        (is (some #(= "orange" (:word %)) collection-words))))))
+
+(deftest test-add-word-string-to-collection
+  (testing "add-word-string-to-collection! adds a word by string to a collection"
+    (db/insert-word! "grape" "ɡreɪp" "A small round fruit" "виноград" "Grapes grow in clusters.")
+    (db/create-collection! "More Fruits" "More fruit examples")
+    (let [collections (db/get-all-collections)
+          collection (first (filter #(= "More Fruits" (:name %)) collections))
+          collection-id (:id collection)]
+      (is (db/add-word-string-to-collection! "grape" collection-id))
+      (let [collection-words (db/get-collection-words collection-id)]
+        (is (some #(= "grape" (:word %)) collection-words))))))
+
+(deftest test-remove-word-from-collection
+  (testing "remove-word-from-collection! removes a word from a collection"
+    (db/insert-word! "pear" "peər" "A sweet fruit" "груша" "I like pears.")
+    (db/create-collection! "Pear Collection" "Collection with pears")
+    (let [word (db/get-word-by-word "pear")
+          word-id (:id word)
+          collections (db/get-all-collections)
+          collection (first (filter #(= "Pear Collection" (:name %)) collections))
+          collection-id (:id collection)]
+      ;; Add word to collection
+      (db/add-word-to-collection! word-id collection-id)
+      ;; Verify word is in collection
+      (let [before-collection-words (db/get-collection-words collection-id)]
+        (is (some #(= "pear" (:word %)) before-collection-words))
+        ;; Remove word from collection
+        (db/remove-word-from-collection! word-id collection-id)
+        ;; Verify word is removed
+        (let [after-collection-words (db/get-collection-words collection-id)]
+          (is (not (some #(= "pear" (:word %)) after-collection-words))))))))
+
+(deftest test-remove-word-string-from-collection
+  (testing "remove-word-string-from-collection! removes a word by string from a collection"
+    (db/insert-word! "peach" "piːtʃ" "A juicy fruit with fuzzy skin" "персик" "I ate a peach.")
+    (db/create-collection! "Peach Collection" "Collection with peaches")
+    (let [collections (db/get-all-collections)
+          collection (first (filter #(= "Peach Collection" (:name %)) collections))
+          collection-id (:id collection)]
+      ;; Add word to collection
+      (db/add-word-string-to-collection! "peach" collection-id)
+      ;; Verify word is in collection
+      (let [before-collection-words (db/get-collection-words collection-id)]
+        (is (some #(= "peach" (:word %)) before-collection-words))
+        ;; Remove word from collection
+        (db/remove-word-string-from-collection! "peach" collection-id)
+        ;; Verify word is removed
+        (let [after-collection-words (db/get-collection-words collection-id)]
+          (is (not (some #(= "peach" (:word %)) after-collection-words))))))))
+
+(deftest test-get-collection-words
+  (testing "get-collection-words returns all words in a collection"
+    (db/insert-word! "apple" "ˈæpl" "A round fruit" "яблоко" "I ate an apple.")
+    (db/insert-word! "banana" "bəˈnɑːnə" "A long curved fruit" "банан" "Monkeys love bananas.")
+    (db/create-collection! "Fruit Basket" "Collection of various fruits")
+    (let [collections (db/get-all-collections)
+          collection (first (filter #(= "Fruit Basket" (:name %)) collections))
+          collection-id (:id collection)]
+      ;; Add words to collection
+      (db/add-word-string-to-collection! "apple" collection-id)
+      (db/add-word-string-to-collection! "banana" collection-id)
+      ;; Get words in collection
+      (let [collection-words (db/get-collection-words collection-id)]
+        (is (= 2 (count collection-words)))
+        (is (some #(= "apple" (:word %)) collection-words))
+        (is (some #(= "banana" (:word %)) collection-words))))))
+
+(deftest test-count-collection-words
+  (testing "count-collection-words returns the correct count of words in a collection"
+    (db/insert-word! "apple" "ˈæpl" "A round fruit" "яблоко" "I ate an apple.")
+    (db/insert-word! "banana" "bəˈnɑːnə" "A long curved fruit" "банан" "Monkeys love bananas.")
+    (db/create-collection! "Count Collection" "Collection for counting words")
+    (let [collections (db/get-all-collections)
+          collection (first (filter #(= "Count Collection" (:name %)) collections))
+          collection-id (:id collection)]
+      ;; Add words to collection
+      (db/add-word-string-to-collection! "apple" collection-id)
+      (db/add-word-string-to-collection! "banana" collection-id)
+      ;; Count words
+      (is (= 2 (db/count-collection-words collection-id))))))
+
+(deftest test-word-in-collection
+  (testing "word-in-collection? correctly identifies if a word is in a collection"
+    (db/insert-word! "apple" "ˈæpl" "A round fruit" "яблоко" "I ate an apple.")
+    (db/insert-word! "banana" "bəˈnɑːnə" "A long curved fruit" "банан" "Monkeys love bananas.")
+    (db/create-collection! "Membership Test" "Collection for testing membership")
+    (let [apple-word (db/get-word-by-word "apple")
+          banana-word (db/get-word-by-word "banana")
+          collections (db/get-all-collections)
+          collection (first (filter #(= "Membership Test" (:name %)) collections))
+          collection-id (:id collection)]
+      ;; Add only apple to collection
+      (db/add-word-to-collection! (:id apple-word) collection-id)
+      ;; Test membership
+      (is (db/word-in-collection? (:id apple-word) collection-id))
+      (is (not (db/word-in-collection? (:id banana-word) collection-id))))))
+
+(deftest test-get-word-collections
+  (testing "get-word-collections returns all collections a word belongs to"
+    (db/insert-word! "apple" "ˈæpl" "A round fruit" "яблоко" "I ate an apple.")
+    (db/create-collection! "Collection A" "First test collection")
+    (db/create-collection! "Collection B" "Second test collection")
+    (let [word (db/get-word-by-word "apple")
+          word-id (:id word)
+          collections (db/get-all-collections)
+          collection-a (first (filter #(= "Collection A" (:name %)) collections))
+          collection-b (first (filter #(= "Collection B" (:name %)) collections))]
+      ;; Add word to both collections
+      (db/add-word-to-collection! word-id (:id collection-a))
+      (db/add-word-to-collection! word-id (:id collection-b))
+      ;; Get collections the word belongs to
+      (let [word-collections (db/get-word-collections word-id)]
+        (is (= 2 (count word-collections)))
+        (is (some #(= "Collection A" (:name %)) word-collections))
+        (is (some #(= "Collection B" (:name %)) word-collections)))))) 

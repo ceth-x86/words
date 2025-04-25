@@ -137,6 +137,104 @@
     (catch Exception e
       (handle-error e))))
 
+;; API handlers for collections
+
+(defn api-get-all-collections []
+  (try
+    (let [collections (db/get-all-collections)]
+      (handle-success {:collections collections
+                     :count (count collections)}))
+    (catch Exception e
+      (handle-error e))))
+
+(defn api-get-collection [collection-id]
+  (try
+    (if-let [collection (db/get-collection-by-id collection-id)]
+      (let [words (db/get-collection-words collection-id)
+            word-count (count words)]
+        (handle-success {:collection (assoc collection :word_count word-count)
+                        :words words}))
+      (handle-not-found (str "Collection ID " collection-id " not found")))
+    (catch Exception e
+      (handle-error e))))
+
+(defn api-create-collection [params]
+  (try
+    (let [{:keys [name description]} params]
+      (if name
+        (do
+          (db/create-collection! name description)
+          (if-let [collection (db/get-collection-by-name name)]
+            (handle-created {:message (str "Collection \"" name "\" successfully created")
+                            :collection collection})
+            (handle-error (Exception. (str "Failed to retrieve created collection \"" name "\"")))))
+        (handle-error (Exception. "Required field: name"))))
+    (catch Exception e
+      (handle-error e))))
+
+(defn api-update-collection [collection-id params]
+  (try
+    (let [{:keys [name description]} params]
+      (if name
+        (do
+          (db/update-collection! collection-id name description)
+          (if-let [collection (db/get-collection-by-id collection-id)]
+            (handle-success {:message (str "Collection ID " collection-id " successfully updated")
+                            :collection collection})
+            (handle-not-found (str "Collection ID " collection-id " not found"))))
+        (handle-error (Exception. "Required field: name"))))
+    (catch Exception e
+      (handle-error e))))
+
+(defn api-delete-collection [collection-id]
+  (try
+    (if (db/get-collection-by-id collection-id)
+      (do
+        (db/delete-collection! collection-id)
+        (handle-success {:message (str "Collection ID " collection-id " successfully deleted")}))
+      (handle-not-found (str "Collection ID " collection-id " not found")))
+    (catch Exception e
+      (handle-error e))))
+
+(defn api-add-word-to-collection [collection-id word]
+  (try
+    (if-let [collection (db/get-collection-by-id collection-id)]
+      (if-let [word-obj (db/get-word-by-word word)]
+        (do
+          (db/add-word-to-collection! (:id word-obj) collection-id)
+          (handle-success {:message (str "Word \"" word "\" successfully added to collection \"" (:name collection) "\"")
+                         :collection_id collection-id
+                         :word word}))
+        (handle-not-found (str "Word \"" word "\" not found")))
+      (handle-not-found (str "Collection ID " collection-id " not found")))
+    (catch Exception e
+      (handle-error e))))
+
+(defn api-remove-word-from-collection [collection-id word]
+  (try
+    (if-let [collection (db/get-collection-by-id collection-id)]
+      (if-let [word-obj (db/get-word-by-word word)]
+        (do
+          (db/remove-word-from-collection! (:id word-obj) collection-id)
+          (handle-success {:message (str "Word \"" word "\" successfully removed from collection \"" (:name collection) "\"")
+                         :collection_id collection-id
+                         :word word}))
+        (handle-not-found (str "Word \"" word "\" not found")))
+      (handle-not-found (str "Collection ID " collection-id " not found")))
+    (catch Exception e
+      (handle-error e))))
+
+(defn api-get-word-collections [word]
+  (try
+    (if-let [word-obj (db/get-word-by-word word)]
+      (let [collections (db/get-word-collections (:id word-obj))]
+        (handle-success {:word word
+                       :collections collections
+                       :count (count collections)}))
+      (handle-not-found (str "Word \"" word "\" not found")))
+    (catch Exception e
+      (handle-error e))))
+
 ;; API handlers for import/export operations
 
 (defn read-file-content [file]
@@ -207,6 +305,16 @@
   
   ;; Word operations
   (DELETE "/api/words/:word" [word] (api-delete-word word))
+  
+  ;; Collection operations
+  (GET "/api/collections" [] (api-get-all-collections))
+  (POST "/api/collections" {body :body} (api-create-collection body))
+  (GET "/api/collections/:id" [id] (api-get-collection id))
+  (PUT "/api/collections/:id" [id :as {body :body}] (api-update-collection id body))
+  (DELETE "/api/collections/:id" [id] (api-delete-collection id))
+  (POST "/api/collections/:id/words/:word" [id word] (api-add-word-to-collection id word))
+  (DELETE "/api/collections/:id/words/:word" [id word] (api-remove-word-from-collection id word))
+  (GET "/api/words/:word/collections" [word] (api-get-word-collections word))
   
   ;; DB Initialization
   (POST "/api/init" [] (api-init-db))

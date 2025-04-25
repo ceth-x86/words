@@ -42,6 +42,29 @@
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (meaning_id) REFERENCES meanings(id) ON DELETE CASCADE
       )
+    "])
+    
+    ;; Create collections table
+    (jdbc/execute! ds ["
+      CREATE TABLE IF NOT EXISTS collections (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        description TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(name)
+      )
+    "])
+    
+    ;; Create words_collections junction table for many-to-many relationship
+    (jdbc/execute! ds ["
+      CREATE TABLE IF NOT EXISTS words_collections (
+        word_id INTEGER NOT NULL,
+        collection_id INTEGER NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (word_id, collection_id),
+        FOREIGN KEY (word_id) REFERENCES words(id) ON DELETE CASCADE,
+        FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE
+      )
     "])))
 
 ;; Helper function to get or create a word
@@ -235,3 +258,153 @@
         result (jdbc/execute-one! ds ["SELECT COUNT(*) as count FROM examples"]
                                  {:builder-fn rs/as-unqualified-maps})]
     (:count result)))
+
+;; Collections functions
+
+;; Function to create a new collection
+(defn create-collection! [name description]
+  (let [ds (jdbc/get-datasource db-spec)]
+    (try
+      (jdbc/execute! ds ["
+        INSERT INTO collections (name, description) 
+        VALUES (?, ?)
+      " name description])
+      true
+      (catch Exception e
+        (println (str "Error creating collection: '" name "'. " (.getMessage e)))
+        false))))
+
+;; Function to get all collections
+(defn get-all-collections []
+  (let [ds (jdbc/get-datasource db-spec)]
+    (jdbc/execute! ds ["
+      SELECT id, name, description, created_at
+      FROM collections
+      ORDER BY name
+    "] {:builder-fn rs/as-unqualified-maps})))
+
+;; Function to get a collection by ID
+(defn get-collection-by-id [collection-id]
+  (let [ds (jdbc/get-datasource db-spec)]
+    (jdbc/execute-one! ds ["
+      SELECT id, name, description, created_at
+      FROM collections
+      WHERE id = ?
+    " collection-id] {:builder-fn rs/as-unqualified-maps})))
+
+;; Function to get a collection by name
+(defn get-collection-by-name [name]
+  (let [ds (jdbc/get-datasource db-spec)]
+    (jdbc/execute-one! ds ["
+      SELECT id, name, description, created_at
+      FROM collections
+      WHERE name = ?
+    " name] {:builder-fn rs/as-unqualified-maps})))
+
+;; Function to update a collection
+(defn update-collection! [collection-id name description]
+  (let [ds (jdbc/get-datasource db-spec)]
+    (try
+      (jdbc/execute! ds ["
+        UPDATE collections 
+        SET name = ?, description = ?
+        WHERE id = ?
+      " name description collection-id])
+      true
+      (catch Exception e
+        (println (str "Error updating collection ID: " collection-id ". " (.getMessage e)))
+        false))))
+
+;; Function to delete a collection
+(defn delete-collection! [collection-id]
+  (let [ds (jdbc/get-datasource db-spec)]
+    (jdbc/execute! ds ["
+      DELETE FROM collections 
+      WHERE id = ?
+    " collection-id])))
+
+;; Function to add a word to a collection
+(defn add-word-to-collection! [word-id collection-id]
+  (let [ds (jdbc/get-datasource db-spec)]
+    (try
+      (jdbc/execute! ds ["
+        INSERT INTO words_collections (word_id, collection_id)
+        VALUES (?, ?)
+      " word-id collection-id])
+      true
+      (catch Exception e
+        (println (str "Error adding word to collection. " (.getMessage e)))
+        false))))
+
+;; Function to add a word (by word string) to a collection
+(defn add-word-string-to-collection! [word collection-id]
+  (let [ds (jdbc/get-datasource db-spec)
+        word-record (jdbc/execute-one! ds ["SELECT id FROM words WHERE word = ?" word]
+                                        {:builder-fn rs/as-unqualified-maps})]
+    (if word-record
+      (add-word-to-collection! (:id word-record) collection-id)
+      (do
+        (println (str "Word '" word "' not found."))
+        false))))
+
+;; Function to remove a word from a collection
+(defn remove-word-from-collection! [word-id collection-id]
+  (let [ds (jdbc/get-datasource db-spec)]
+    (jdbc/execute! ds ["
+      DELETE FROM words_collections
+      WHERE word_id = ? AND collection_id = ?
+    " word-id collection-id])))
+
+;; Function to remove a word (by word string) from a collection
+(defn remove-word-string-from-collection! [word collection-id]
+  (let [ds (jdbc/get-datasource db-spec)
+        word-record (jdbc/execute-one! ds ["SELECT id FROM words WHERE word = ?" word]
+                                        {:builder-fn rs/as-unqualified-maps})]
+    (if word-record
+      (remove-word-from-collection! (:id word-record) collection-id)
+      (do
+        (println (str "Word '" word "' not found."))
+        false))))
+
+;; Function to get all words in a collection
+(defn get-collection-words [collection-id]
+  (let [ds (jdbc/get-datasource db-spec)
+        word-ids (jdbc/execute! ds ["
+          SELECT w.id, w.word
+          FROM words w
+          JOIN words_collections wc ON w.id = wc.word_id
+          WHERE wc.collection_id = ?
+          ORDER BY w.word
+        " collection-id] {:builder-fn rs/as-unqualified-maps})]
+    (mapv #(assoc % :meanings (get-word-meanings (:id %))) word-ids)))
+
+;; Function to count words in a collection
+(defn count-collection-words [collection-id]
+  (let [ds (jdbc/get-datasource db-spec)
+        result (jdbc/execute-one! ds ["
+          SELECT COUNT(*) as count 
+          FROM words_collections 
+          WHERE collection_id = ?
+        " collection-id] {:builder-fn rs/as-unqualified-maps})]
+    (:count result)))
+
+;; Function to check if a word is in a collection
+(defn word-in-collection? [word-id collection-id]
+  (let [ds (jdbc/get-datasource db-spec)
+        result (jdbc/execute-one! ds ["
+          SELECT COUNT(*) as count 
+          FROM words_collections 
+          WHERE word_id = ? AND collection_id = ?
+        " word-id collection-id] {:builder-fn rs/as-unqualified-maps})]
+    (> (:count result) 0)))
+
+;; Function to get all collections a word belongs to
+(defn get-word-collections [word-id]
+  (let [ds (jdbc/get-datasource db-spec)]
+    (jdbc/execute! ds ["
+      SELECT c.id, c.name, c.description
+      FROM collections c
+      JOIN words_collections wc ON c.id = wc.collection_id
+      WHERE wc.word_id = ?
+      ORDER BY c.name
+    " word-id] {:builder-fn rs/as-unqualified-maps})))

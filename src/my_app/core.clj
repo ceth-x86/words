@@ -135,6 +135,75 @@
     (db/init-db!) ; initialize the database when starting the server
     (jetty/run-jetty api/app {:port port-num :join? true})))
 
+(defn format-collection [collection]
+  (println (str "Collection: " (:name collection) " (ID: " (:id collection) ")"))
+  (println (str "Description: " (:description collection)))
+  (println (str "Created at: " (:created_at collection)))
+  (println "------------------------"))
+
+(defn show-collections []
+  (println "List of all collections:")
+  (let [collections (db/get-all-collections)]
+    (if (empty? collections)
+      (println "No collections found.")
+      (do
+        (println (str "Total collections: " (count collections)))
+        (doseq [collection collections]
+          (format-collection collection))))))
+
+(defn create-collection [name description]
+  (println (str "Creating collection: \"" name "\""))
+  (if (db/create-collection! name description)
+    (println "Collection successfully created.")
+    (println "Failed to create collection.")))
+
+(defn get-collection [collection-id]
+  (println (str "Getting information about collection ID: " collection-id))
+  (if-let [collection (db/get-collection-by-id collection-id)]
+    (let [words (db/get-collection-words collection-id)]
+      (format-collection collection)
+      (println (str "Words in this collection: " (count words)))
+      (if (empty? words)
+        (println "No words in this collection.")
+        (doseq [word words]
+          (format-word word))))
+    (println (str "Collection ID " collection-id " not found."))))
+
+(defn update-collection [collection-id name description]
+  (println (str "Updating collection ID: " collection-id))
+  (if (db/update-collection! collection-id name description)
+    (println "Collection successfully updated.")
+    (println "Failed to update collection.")))
+
+(defn delete-collection [collection-id]
+  (println (str "Deleting collection ID: " collection-id))
+  (db/delete-collection! collection-id)
+  (println "Collection successfully deleted."))
+
+(defn add-word-to-collection [word collection-id]
+  (println (str "Adding word \"" word "\" to collection ID: " collection-id))
+  (if (db/add-word-string-to-collection! word collection-id)
+    (println "Word successfully added to collection.")
+    (println "Failed to add word to collection.")))
+
+(defn remove-word-from-collection [word collection-id]
+  (println (str "Removing word \"" word "\" from collection ID: " collection-id))
+  (if (db/remove-word-string-from-collection! word collection-id)
+    (println "Word successfully removed from collection.")
+    (println "Failed to remove word from collection.")))
+
+(defn get-word-collections [word]
+  (println (str "Getting collections for word: \"" word "\""))
+  (if-let [word-obj (db/get-word-by-word word)]
+    (let [collections (db/get-word-collections (:id word-obj))]
+      (if (empty? collections)
+        (println "This word doesn't belong to any collections.")
+        (do
+          (println (str "Collections containing word \"" word "\":"))
+          (doseq [collection collections]
+            (format-collection collection)))))
+    (println (str "Word \"" word "\" not found."))))
+
 (defn -main
   "Application entry point"
   [& args]
@@ -204,6 +273,44 @@
     (if (>= (count args) 3)
       (export-search-results (nth args 1) (nth args 2))
       (println "Error: The export-search command requires a search query and a file path."))
+    
+    (= (first args) "collections")
+    (show-collections)
+    
+    (= (first args) "create-collection")
+    (if (>= (count args) 3)
+      (create-collection (nth args 1) (nth args 2))
+      (println "Error: The create-collection command requires a name and description."))
+    
+    (= (first args) "get-collection")
+    (if (>= (count args) 2)
+      (get-collection (nth args 1))
+      (println "Error: The get-collection command requires a collection_id."))
+    
+    (= (first args) "update-collection")
+    (if (>= (count args) 4)
+      (update-collection (nth args 1) (nth args 2) (nth args 3))
+      (println "Error: The update-collection command requires a collection_id, name, and description."))
+    
+    (= (first args) "delete-collection")
+    (if (>= (count args) 2)
+      (delete-collection (nth args 1))
+      (println "Error: The delete-collection command requires a collection_id."))
+    
+    (= (first args) "add-to-collection")
+    (if (>= (count args) 3)
+      (add-word-to-collection (nth args 1) (nth args 2))
+      (println "Error: The add-to-collection command requires a word and a collection_id."))
+    
+    (= (first args) "remove-from-collection")
+    (if (>= (count args) 3)
+      (remove-word-from-collection (nth args 1) (nth args 2))
+      (println "Error: The remove-from-collection command requires a word and a collection_id."))
+    
+    (= (first args) "word-collections")
+    (if (>= (count args) 2)
+      (get-word-collections (nth args 1))
+      (println "Error: The word-collections command requires a word."))
     
     (= (first args) "server")
     (start-server (second args))

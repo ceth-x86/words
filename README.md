@@ -14,14 +14,13 @@ To view test results, go to the Actions tab in the GitHub repository.
 
 - SQLite database integration
 - Store English words with multiple meanings, transcriptions, descriptions, translations, and examples
-- Command-line interface
-- REST API for all functionality
+- Command-line & REST API interface
 - Search functionality
-- Word and meaning management (add, update, delete)
-- No duplicate words (words are unique)
+- Support for multiple meanings per word
+- Collections to organize words into groups
 - Import words from formatted text files
 - Export words to formatted text files
-- Support for multiple meanings per word
+
 
 ## Database Schema
 
@@ -54,6 +53,25 @@ CREATE TABLE IF NOT EXISTS examples (
   text TEXT NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (meaning_id) REFERENCES meanings(id) ON DELETE CASCADE
+)
+
+-- Collections table for organizing words
+CREATE TABLE IF NOT EXISTS collections (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  description TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(name)
+)
+
+-- Words-Collections junction table for many-to-many relationship
+CREATE TABLE IF NOT EXISTS words_collections (
+  word_id INTEGER NOT NULL,
+  collection_id INTEGER NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (word_id, collection_id),
+  FOREIGN KEY (word_id) REFERENCES words(id) ON DELETE CASCADE,
+  FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE
 )
 ```
 
@@ -108,6 +126,30 @@ lein run export "resources/exported_words.md"
 
 # Export search results to a file
 lein run export-search "app" "resources/app_words.md"
+
+# Show all collections
+lein run collections
+
+# Create a new collection
+lein run create-collection "name" "description"
+
+# Get a specific collection with all its words
+lein run get-collection "collection_id"
+
+# Update a collection
+lein run update-collection "collection_id" "new_name" "new_description"
+
+# Delete a collection
+lein run delete-collection "collection_id"
+
+# Add a word to a collection
+lein run add-to-collection "word" "collection_id"
+
+# Remove a word from a collection
+lein run remove-from-collection "word" "collection_id"
+
+# Show all collections a word belongs to
+lein run word-collections "word"
 
 # Start the REST API server (optional port, default 3000)
 lein run server [port]
@@ -217,6 +259,15 @@ The application provides several functions for database operations:
 - `db/count-words` - Count the total number of words
 - `db/count-meanings` - Count the total number of meanings
 - `db/count-examples` - Count the total number of examples
+- `db/get-all-collections` - Get all collections
+- `db/get-collection-by-id` - Get a specific collection by ID
+- `db/create-collection!` - Create a new collection
+- `db/update-collection!` - Update a collection's details
+- `db/delete-collection!` - Delete a collection
+- `db/get-collection-words` - Get all words in a collection
+- `db/add-word-string-to-collection!` - Add a word to a collection
+- `db/remove-word-string-from-collection!` - Remove a word from a collection
+- `db/get-word-collections` - Get all collections containing a specific word
 
 ## Export Functions
 
@@ -250,6 +301,17 @@ The application also provides a REST API with the following endpoints:
 
 - `POST /api/meanings/:id/examples` - Add an example to a meaning
 - `DELETE /api/examples/:id` - Delete a specific example
+
+### Collection Endpoints
+
+- `GET /api/collections` - Get all collections
+- `GET /api/collections/:id` - Get a specific collection with its words
+- `POST /api/collections` - Create a new collection
+- `PUT /api/collections/:id` - Update a collection
+- `DELETE /api/collections/:id` - Delete a collection
+- `POST /api/collections/:id/words/:word` - Add a word to a collection
+- `DELETE /api/collections/:id/words/:word` - Remove a word from a collection
+- `GET /api/words/:word/collections` - Get all collections a word belongs to
 
 ### Word Management
 
@@ -405,6 +467,48 @@ GET /api/export
 GET /api/export/search?term=run
 ```
 
+#### Create a new collection
+```
+POST /api/collections
+Content-Type: application/json
+
+{
+  "name": "Fruits",
+  "description": "Words related to different types of fruits"
+}
+```
+
+#### Get a specific collection
+```
+GET /api/collections/1
+```
+
+#### Update a collection
+```
+PUT /api/collections/1
+Content-Type: application/json
+
+{
+  "name": "Common Fruits",
+  "description": "Updated collection of common fruit names"
+}
+```
+
+#### Add a word to a collection
+```
+POST /api/collections/1/words/apple
+```
+
+#### Remove a word from a collection
+```
+DELETE /api/collections/1/words/apple
+```
+
+#### Get all collections a word belongs to
+```
+GET /api/words/apple/collections
+```
+
 ### Curl Examples
 
 Here are some curl command examples to interact with the API:
@@ -479,6 +583,11 @@ curl -X POST http://localhost:3000/api/meanings/2/examples \
 curl -X DELETE http://localhost:3000/api/meanings/2
 ```
 
+#### Delete an example
+```bash
+curl -X DELETE http://localhost:3000/api/examples/3
+```
+
 #### Delete a word and all its meanings
 ```bash
 curl -X DELETE http://localhost:3000/api/words/run
@@ -504,6 +613,56 @@ curl -o exported_words.md http://localhost:3000/api/export
 #### Export search results
 ```bash
 curl -o search_results.md "http://localhost:3000/api/export/search?term=run"
+```
+
+#### Get all collections
+```bash
+curl http://localhost:3000/api/collections
+```
+
+#### Get a specific collection with its words
+```bash
+curl http://localhost:3000/api/collections/1
+```
+
+#### Create a new collection
+```bash
+curl -X POST http://localhost:3000/api/collections \
+     -H "Content-Type: application/json" \
+     -d '{
+           "name": "Fruits",
+           "description": "Words related to different types of fruits"
+         }'
+```
+
+#### Update a collection
+```bash
+curl -X PUT http://localhost:3000/api/collections/1 \
+     -H "Content-Type: application/json" \
+     -d '{
+           "name": "Common Fruits",
+           "description": "Updated collection of common fruit names"
+         }'
+```
+
+#### Delete a collection
+```bash
+curl -X DELETE http://localhost:3000/api/collections/1
+```
+
+#### Add a word to a collection
+```bash
+curl -X POST http://localhost:3000/api/collections/1/words/apple
+```
+
+#### Remove a word from a collection
+```bash
+curl -X DELETE http://localhost:3000/api/collections/1/words/apple
+```
+
+#### Get all collections a word belongs to
+```bash
+curl http://localhost:3000/api/words/apple/collections
 ```
 
 ## Testing

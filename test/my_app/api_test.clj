@@ -41,6 +41,11 @@
 (def test-example
   {:text "This is a new example."})
 
+;; Collection mock data
+(def test-collection 
+  {:name "Test Collection"
+   :description "A collection for testing"})
+
 ;; Sample export format for testing
 (def sample-export-format
   "**apple**\n/ˈæpl/ - A round fruit\n(яблоко)\n- I ate an apple.\n\n")
@@ -104,6 +109,52 @@
                 :translation "банан" 
                 :examples ["Monkeys like bananas."]}]}])
 
+;; Mock functions for collections
+(defn mock-get-all-collections []
+  [{:id 1
+    :name "Test Collection"
+    :description "A collection for testing"
+    :created_at "2023-01-01 12:00:00"}])
+
+(defn mock-get-collection-by-id [id]
+  (when (= id "1")
+    {:id 1
+     :name "Test Collection"
+     :description "A collection for testing"
+     :created_at "2023-01-01 12:00:00"}))
+
+(defn mock-get-collection-by-name [name]
+  (when (= name "Test Collection")
+    {:id 1
+     :name "Test Collection"
+     :description "A collection for testing"
+     :created_at "2023-01-01 12:00:00"}))
+
+(defn mock-create-collection! [name description]
+  true)
+
+(defn mock-update-collection! [id name description]
+  true)
+
+(defn mock-delete-collection! [id]
+  true)
+
+(defn mock-get-collection-words [id]
+  (when (= id "1")
+    [test-word]))
+
+(defn mock-add-word-to-collection! [word-id collection-id]
+  true)
+
+(defn mock-remove-word-from-collection! [word-id collection-id]
+  true)
+
+(defn mock-get-word-collections [word-id]
+  (when (= word-id 1)
+    [{:id 1
+      :name "Test Collection"
+      :description "A collection for testing"}]))
+
 ;; Test fixture for mocking database functions
 (defn with-mock-db [f]
   (with-redefs [db/get-all-words mock-get-all-words
@@ -121,7 +172,18 @@
                 db/count-meanings mock-count-meanings
                 db/count-examples mock-count-examples
                 exp/format-words-for-export mock-format-words-for-export
-                imp/parse-words-file mock-parse-words-file]
+                imp/parse-words-file mock-parse-words-file
+                ;; Collection mocks
+                db/get-all-collections mock-get-all-collections
+                db/get-collection-by-id mock-get-collection-by-id
+                db/get-collection-by-name mock-get-collection-by-name
+                db/create-collection! mock-create-collection!
+                db/update-collection! mock-update-collection!
+                db/delete-collection! mock-delete-collection!
+                db/get-collection-words mock-get-collection-words
+                db/add-word-to-collection! mock-add-word-to-collection!
+                db/remove-word-from-collection! mock-remove-word-from-collection!
+                db/get-word-collections mock-get-word-collections]
     (f)))
 
 ;; Mock the import function directly
@@ -289,4 +351,79 @@
   (testing "API responses have JSON Content-Type header"
     (let [response (app (mock/request :get "/api/words"))
           content-type (get-in response [:headers "Content-Type"])]
-      (is (= "application/json; charset=utf-8" content-type))))) 
+      (is (= "application/json; charset=utf-8" content-type)))))
+
+;; Collection API Tests
+(deftest test-api-get-all-collections
+  (testing "GET /api/collections returns all collections"
+    (let [response (app (mock/request :get "/api/collections"))
+          body (parse-body response)]
+      (is (= 200 (:status response)))
+      (is (= 1 (:count body)))
+      (is (= "Test Collection" (-> body :collections first :name))))))
+
+(deftest test-api-get-collection
+  (testing "GET /api/collections/:id returns a specific collection when found"
+    (let [response (app (mock/request :get "/api/collections/1"))
+          body (parse-body response)]
+      (is (= 200 (:status response)))
+      (is (= "Test Collection" (-> body :collection :name)))))
+  
+  (testing "GET /api/collections/:id returns 404 when collection not found"
+    (let [response (app (mock/request :get "/api/collections/999"))
+          body (parse-body response)]
+      (is (= 404 (:status response)))
+      (is (= "Collection ID 999 not found" (:error body))))))
+
+(deftest test-api-create-collection
+  (testing "POST /api/collections creates a new collection"
+    (let [response (app (-> (mock/request :post "/api/collections")
+                            (mock/json-body test-collection)))
+          body (parse-body response)]
+      (is (= 201 (:status response)))
+      (is (= "Collection \"Test Collection\" successfully created" (:message body)))))
+  
+  (testing "POST /api/collections validates required fields"
+    (let [response (app (-> (mock/request :post "/api/collections")
+                           (mock/json-body {:description "Missing name"})))
+          body (parse-body response)]
+      (is (= 500 (:status response)))
+      (is (= "Required field: name" (:error body))))))
+
+(deftest test-api-update-collection
+  (testing "PUT /api/collections/:id updates a collection"
+    (let [response (app (-> (mock/request :put "/api/collections/1")
+                            (mock/json-body {:name "Updated Collection" 
+                                            :description "Updated description"})))
+          body (parse-body response)]
+      (is (= 200 (:status response)))
+      (is (= "Collection ID 1 successfully updated" (:message body))))))
+
+(deftest test-api-delete-collection
+  (testing "DELETE /api/collections/:id deletes a collection"
+    (let [response (app (mock/request :delete "/api/collections/1"))
+          body (parse-body response)]
+      (is (= 200 (:status response)))
+      (is (= "Collection ID 1 successfully deleted" (:message body))))))
+
+(deftest test-api-add-word-to-collection
+  (testing "POST /api/collections/:id/words/:word adds a word to a collection"
+    (let [response (app (mock/request :post "/api/collections/1/words/apple"))
+          body (parse-body response)]
+      (is (= 200 (:status response)))
+      (is (= "Word \"apple\" successfully added to collection \"Test Collection\"" (:message body))))))
+
+(deftest test-api-remove-word-from-collection
+  (testing "DELETE /api/collections/:id/words/:word removes a word from a collection"
+    (let [response (app (mock/request :delete "/api/collections/1/words/apple"))
+          body (parse-body response)]
+      (is (= 200 (:status response)))
+      (is (= "Word \"apple\" successfully removed from collection \"Test Collection\"" (:message body))))))
+
+(deftest test-api-get-word-collections
+  (testing "GET /api/words/:word/collections returns all collections a word belongs to"
+    (let [response (app (mock/request :get "/api/words/apple/collections"))
+          body (parse-body response)]
+      (is (= 200 (:status response)))
+      (is (= 1 (:count body)))
+      (is (= "Test Collection" (-> body :collections first :name)))))) 
