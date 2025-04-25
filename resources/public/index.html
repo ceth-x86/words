@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>English Words Dictionary</title>
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Vue.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+    <!-- Axios for HTTP requests -->
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>{{ title }}</h1>
+            <div class="search-container">
+                <input 
+                    type="text" 
+                    v-model="searchTerm" 
+                    @keyup.enter="searchWords" 
+                    placeholder="Search words..."
+                    class="search-input"
+                >
+                <button @click="searchWords" class="search-button">Search</button>
+                <button @click="getAllWords" class="all-words-button">All Words</button>
+            </div>
+        </header>
+
+        <main>
+            <div class="stats" v-if="stats">
+                <p>Total Words: {{ stats.count }}</p>
+                <p>Total Meanings: {{ stats.total_meanings }}</p>
+                <p>Total Examples: {{ stats.total_examples }}</p>
+            </div>
+
+            <div class="add-word-container">
+                <button @click="showAddWordForm = !showAddWordForm" class="add-word-button">
+                    {{ showAddWordForm ? 'Cancel' : 'Add New Word' }}
+                </button>
+                
+                <div class="add-word-form" v-if="showAddWordForm">
+                    <h3>Add New Word</h3>
+                    <div class="form-group">
+                        <label for="word">Word*:</label>
+                        <input type="text" id="word" v-model="newWord.word" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="transcription">Transcription:</label>
+                        <input type="text" id="transcription" v-model="newWord.transcription">
+                    </div>
+                    <div class="form-group">
+                        <label for="description">Description:</label>
+                        <input type="text" id="description" v-model="newWord.description">
+                    </div>
+                    <div class="form-group">
+                        <label for="translation">Translation*:</label>
+                        <input type="text" id="translation" v-model="newWord.translation" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="examples">Examples (one per line):</label>
+                        <textarea id="examples" v-model="newWord.examples"></textarea>
+                    </div>
+                    <button @click="addWord" class="submit-button">Add Word</button>
+                </div>
+            </div>
+
+            <div class="words-container" v-if="words.length">
+                <div class="word-card" v-for="word in words" :key="word.id">
+                    <div class="word-header">
+                        <h2>{{ word.word }}</h2>
+                        <div class="word-actions">
+                            <button @click="showAddMeaningForm[word.id] = !showAddMeaningForm[word.id]" class="small-button">
+                                Add Meaning
+                            </button>
+                            <button @click="deleteWord(word.word)" class="small-button delete">Delete</button>
+                        </div>
+                    </div>
+
+                    <div class="add-meaning-form" v-if="showAddMeaningForm[word.id]">
+                        <h3>Add New Meaning to "{{ word.word }}"</h3>
+                        <div class="form-group">
+                            <label for="meaning-transcription">Transcription:</label>
+                            <input type="text" id="meaning-transcription" v-model="newMeaning.transcription">
+                        </div>
+                        <div class="form-group">
+                            <label for="meaning-description">Description:</label>
+                            <input type="text" id="meaning-description" v-model="newMeaning.description">
+                        </div>
+                        <div class="form-group">
+                            <label for="meaning-translation">Translation*:</label>
+                            <input type="text" id="meaning-translation" v-model="newMeaning.translation" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="meaning-examples">Examples (one per line):</label>
+                            <textarea id="meaning-examples" v-model="newMeaning.examples"></textarea>
+                        </div>
+                        <button @click="addMeaning(word.word)" class="submit-button">Add Meaning</button>
+                    </div>
+
+                    <div class="meanings">
+                        <div class="meaning" v-for="meaning in word.meanings" :key="meaning.id">
+                            <div class="meaning-header">
+                                <div class="meaning-info">
+                                    <span class="transcription" v-if="meaning.transcription">[{{ meaning.transcription }}]</span>
+                                    <span class="description">{{ meaning.description }}</span>
+                                    <span class="translation">{{ meaning.translation }}</span>
+                                </div>
+                                <div class="meaning-actions">
+                                    <button @click="deleteMeaning(meaning.id)" class="small-button delete">Delete</button>
+                                </div>
+                            </div>
+                            <div class="examples" v-if="meaning.examples && meaning.examples.length">
+                                <p>Examples:</p>
+                                <ul>
+                                    <li v-for="(example, idx) in meaning.examples" :key="idx">
+                                        {{ example.text }}
+                                        <button @click="deleteExample(example.id)" class="tiny-button delete">✕</button>
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="add-example">
+                                <input 
+                                    type="text" 
+                                    v-model="newExamples[meaning.id]" 
+                                    placeholder="Add new example"
+                                    @keyup.enter="addExample(meaning.id)"
+                                >
+                                <button @click="addExample(meaning.id)" class="small-button">Add</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="no-results" v-else>
+                <p v-if="searched">No words found for "{{ searchTerm }}"</p>
+                <p v-else>No words in the dictionary. Add your first word!</p>
+            </div>
+        </main>
+
+        <div class="notification" v-if="notification.show">
+            <div :class="['notification-content', notification.type]">
+                {{ notification.message }}
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html> 

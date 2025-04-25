@@ -215,8 +215,15 @@
   (GET "/api/export" [] (api-export-words))
   (GET "/api/export/search" [term] (api-export-search-results term))
   
+  ;; Serve static files from resources/public
+  (route/resources "/")
+  
   ;; Handle unknown routes
-  (route/not-found {:error "Route not found"}))
+  (route/not-found {:status 404, :body {:error "Route not found"}})
+  
+  ;; Redirect all non-API routes to index.html for SPA support - moved after not-found to ensure API 404s work
+  #_(GET "/" [] (ring.util.response/resource-response "index.html" {:root "public"}))
+  #_(GET "/*" [] (ring.util.response/resource-response "index.html" {:root "public"})))
 
 ;; Middleware wrappers
 

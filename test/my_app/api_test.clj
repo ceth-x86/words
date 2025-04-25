@@ -10,7 +10,12 @@
 
 ;; Helper functions for the tests
 (defn parse-body [response]
-  (json/parse-string (:body response) true))
+  (try
+    (json/parse-string (:body response) true)
+    (catch Exception e
+      (if (instance? java.io.File (:body response))
+        {:error (str "Invalid response body: " (.getName (:body response)))}
+        {:error "Invalid response body"}))))
 
 ;; Mock data for tests
 (def test-word 

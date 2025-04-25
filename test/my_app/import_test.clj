@@ -206,22 +206,44 @@ for importing words.")
 (deftest test-import-words-from-file
   (testing "import-words-from-file correctly imports words from markdown file"
     (let [temp-file (create-temp-file-with-content sample-markdown-content ".md")
-          result (imp/import-words-from-file (.getPath temp-file))]
-      (is (= 2 result))))
+          imported-count (atom 0)]
+      ;; Mock the database operations
+      (with-redefs [db/insert-word! (fn [& args] true)
+                    db/add-meaning-to-word! (fn [& args] true)
+                    db/get-word-by-word (fn [word] nil)
+                    db/delete-word! (fn [word] true)]
+        (let [result (imp/import-words-from-file (.getPath temp-file))]
+          (is (= 2 result))))))
   
   (testing "import-words-from-file correctly imports words from json file"
     (let [temp-file (create-temp-file-with-content sample-json-content ".json")
-          result (imp/import-words-from-file (.getPath temp-file))]
-      (is (= 2 result))))
+          imported-count (atom 0)]
+      ;; Mock the database operations
+      (with-redefs [db/insert-word! (fn [& args] true)
+                    db/add-meaning-to-word! (fn [& args] true)
+                    db/get-word-by-word (fn [word] nil)
+                    db/delete-word! (fn [word] true)]
+        (let [result (imp/import-words-from-file (.getPath temp-file))]
+          (is (= 2 result))))))
   
   (testing "import-words-from-file handles invalid file content"
-    (let [temp-file (create-temp-file-with-content sample-invalid-content ".txt")
-          result (imp/import-words-from-file (.getPath temp-file))]
-      (is (= 0 result))))
+    (let [temp-file (create-temp-file-with-content sample-invalid-content ".txt")]
+      ;; Mock the database operations
+      (with-redefs [db/insert-word! (fn [& args] true)
+                    db/add-meaning-to-word! (fn [& args] true)
+                    db/get-word-by-word (fn [word] nil)
+                    db/delete-word! (fn [word] true)]
+        (let [result (imp/import-words-from-file (.getPath temp-file))]
+          (is (= 0 result))))))
   
   (testing "import-words-from-file handles file not found error"
-    (let [result (imp/import-words-from-file "nonexistent-file.txt")]
-      (is (= 0 result)))))
+    ;; Mock the database operations
+    (with-redefs [db/insert-word! (fn [& args] true)
+                  db/add-meaning-to-word! (fn [& args] true)
+                  db/get-word-by-word (fn [word] nil)
+                  db/delete-word! (fn [word] true)]
+      (let [result (imp/import-words-from-file "nonexistent-file.txt")]
+        (is (= 0 result))))))
 
 ;; New test to verify that import preserves words not in the import file
 (deftest test-import-preserves-non-imported-words

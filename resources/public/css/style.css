@@ -1,0 +1,345 @@
+:root {
+    --primary-color: #3498db;
+    --secondary-color: #2980b9;
+    --danger-color: #e74c3c;
+    --success-color: #2ecc71;
+    --warning-color: #f39c12;
+    --light-gray: #f5f5f5;
+    --medium-gray: #e0e0e0;
+    --dark-gray: #777;
+    --font-color: #333;
+    --border-radius: 5px;
+    --transition: all 0.3s ease;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+    color: var(--font-color);
+    background-color: var(--light-gray);
+    padding: 20px;
+}
+
+#app {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 30px;
+    padding: 20px;
+    background-color: white;
+    border-radius: var(--border-radius);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+h1 {
+    margin-bottom: 20px;
+    color: var(--primary-color);
+}
+
+.search-container {
+    display: flex;
+    width: 100%;
+    max-width: 600px;
+    gap: 10px;
+}
+
+.search-input {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid var(--medium-gray);
+    border-radius: var(--border-radius);
+    font-size: 16px;
+}
+
+button {
+    padding: 10px 15px;
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: var(--transition);
+    background-color: var(--primary-color);
+    color: white;
+    font-weight: bold;
+}
+
+button:hover {
+    background-color: var(--secondary-color);
+}
+
+.search-button {
+    background-color: var(--primary-color);
+}
+
+.all-words-button {
+    background-color: var(--dark-gray);
+}
+
+.stats {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 20px;
+    padding: 15px;
+    background-color: white;
+    border-radius: var(--border-radius);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.add-word-container {
+    margin-bottom: 20px;
+}
+
+.add-word-button {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 15px;
+    background-color: var(--success-color);
+}
+
+.add-word-button:hover {
+    background-color: #27ae60;
+}
+
+.add-word-form, .add-meaning-form {
+    padding: 20px;
+    background-color: white;
+    border-radius: var(--border-radius);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+input, textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--medium-gray);
+    border-radius: var(--border-radius);
+    font-size: 14px;
+}
+
+textarea {
+    min-height: 80px;
+    resize: vertical;
+}
+
+.submit-button {
+    background-color: var(--success-color);
+    width: 100%;
+    padding: 12px;
+    margin-top: 10px;
+}
+
+.submit-button:hover {
+    background-color: #27ae60;
+}
+
+.words-container {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+}
+
+@media (min-width: 768px) {
+    .words-container {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (min-width: 1024px) {
+    .words-container {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+.word-card {
+    background-color: white;
+    border-radius: var(--border-radius);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.word-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.word-header h2 {
+    font-size: 20px;
+    text-transform: capitalize;
+}
+
+.word-actions {
+    display: flex;
+    gap: 5px;
+}
+
+.small-button {
+    padding: 5px 10px;
+    font-size: 12px;
+    background-color: white;
+    color: var(--primary-color);
+}
+
+.small-button:hover {
+    background-color: #f5f5f5;
+}
+
+.small-button.delete {
+    background-color: var(--danger-color);
+    color: white;
+}
+
+.small-button.delete:hover {
+    background-color: #c0392b;
+}
+
+.meanings {
+    padding: 15px;
+}
+
+.meaning {
+    border-bottom: 1px solid var(--medium-gray);
+    padding: 10px 0;
+}
+
+.meaning:last-child {
+    border-bottom: none;
+}
+
+.meaning-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.meaning-info {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.transcription {
+    color: var(--dark-gray);
+    font-style: italic;
+}
+
+.description {
+    font-weight: bold;
+}
+
+.translation {
+    color: var(--success-color);
+}
+
+.examples {
+    margin: 10px 0;
+}
+
+.examples p {
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.examples ul {
+    list-style-type: none;
+}
+
+.examples li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 0;
+    border-bottom: 1px dotted var(--medium-gray);
+}
+
+.tiny-button {
+    background-color: transparent;
+    color: var(--danger-color);
+    padding: 0 5px;
+    font-size: 12px;
+}
+
+.tiny-button:hover {
+    background-color: var(--danger-color);
+    color: white;
+}
+
+.add-example {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.no-results {
+    text-align: center;
+    padding: 30px;
+    background-color: white;
+    border-radius: var(--border-radius);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.notification {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+}
+
+.notification-content {
+    padding: 15px 25px;
+    border-radius: var(--border-radius);
+    background-color: var(--dark-gray);
+    color: white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    animation: fadeIn 0.3s, fadeOut 0.3s 2.7s;
+    opacity: 0;
+    animation-fill-mode: forwards;
+}
+
+.notification-content.success {
+    background-color: var(--success-color);
+}
+
+.notification-content.error {
+    background-color: var(--danger-color);
+}
+
+.notification-content.warning {
+    background-color: var(--warning-color);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeOut {
+    from { opacity: 1; transform: translateY(0); }
+    to { opacity: 0; transform: translateY(20px); }
+} 
