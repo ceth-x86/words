@@ -337,6 +337,7 @@ Run tests for a specific namespace:
 lein test my-app.core-test
 lein test my-app.db-test
 lein test my-app.db-schema-test
+lein test my-app.api-test
 ```
 
 ### Test Coverage
@@ -346,6 +347,7 @@ The test suite includes:
 - **Core Tests**: Tests for the CLI interface and functions
 - **Database Tests**: Tests for database CRUD operations, search functionality, and batch imports
 - **Schema Tests**: Tests for database schema structure, constraints, and data integrity
+- **API Tests**: Tests for REST API endpoints, request validation, and response formatting
 
 ### Database Testing Strategy
 
@@ -367,10 +369,21 @@ The schema tests specifically verify:
 - Default values (timestamps)
 - Index creation
 
+### API Testing Strategy
+
+The API tests use Ring Mock to simulate HTTP requests and verify:
+- Correct response status codes (200, 404, 500)
+- Proper JSON response formatting
+- Response headers (Content-Type, Content-Disposition)
+- Request parameter validation
+- Error handling
+- Content types and download headers for export functionality
+
 ### Testing Approach
 
 - Core functionality is tested with mocks for database interactions
 - Database functionality is tested with a real SQLite database in a temporary location
+- API endpoints are tested with simulated HTTP requests using ring-mock
 - Each test is isolated and doesn't affect other tests
 
 ## License
