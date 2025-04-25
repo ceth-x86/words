@@ -221,4 +221,246 @@ for importing words.")
   
   (testing "import-words-from-file handles file not found error"
     (let [result (imp/import-words-from-file "nonexistent-file.txt")]
-      (is (= 0 result))))) 
+      (is (= 0 result)))))
+
+;; New test to verify that import preserves words not in the import file
+(deftest test-import-preserves-non-imported-words
+  (testing "Import only affects words in the import file, not other words in the database"
+    (let [imported-words (atom [])
+          deleted-words (atom [])
+          inserted-words (atom [])
+          meanings-added (atom [])
+          get-word-mock (atom {})]
+      
+      ;; Mock functions for testing
+      (with-redefs [db/delete-word! (fn [word] (swap! deleted-words conj word))
+                    db/insert-word! (fn [word & args] (swap! inserted-words conj word) true)
+                    db/add-meaning-to-word! (fn [word & args] (swap! meanings-added conj word) true)
+                    db/get-word-by-word (fn [word] (get @get-word-mock word))]
+        
+        ;; 1. First add an existing word to the mock
+        (swap! get-word-mock assoc "banana" {:id 1 :word "banana"})
+        
+        ;; 2. Create JSON with two words - one new, one existing
+        (let [test-json "[{\"word\": \"apple\", \"transcription\": \"ˈæpl\", \"meanings\": [{\"description\": \"a fruit\", \"translation\": \"яблоко\", \"examples\": [\"Example\"]}]}, {\"word\": \"banana\", \"transcription\": \"bəˈnænə\", \"meanings\": [{\"description\": \"a fruit\", \"translation\": \"банан\", \"examples\": [\"Example\"]}]}]"
+              temp-file (create-temp-file-with-content test-json ".json")
+              result (imp/import-words-from-file (.getPath temp-file))]
+          
+          ;; Check that delete_word! wasn't called
+          (is (empty? @deleted-words) "No words should be deleted in standard mode")
+          
+          ;; Check that insert_word! was called only for the new word "apple"
+          (is (= ["apple"] @inserted-words) "Only new word 'apple' should be inserted")
+          
+          ;; Check that add_meaning_to_word! was called for "banana" (existing word)
+          (is (= ["banana"] @meanings-added) "Only existing word 'banana' meaning should be added")
+          
+          ;; Check that the function returned the correct number of words
+          (is (= 2 result) "Should return 2 words imported"))))))
+
+;; Test to verify behavior with replace-meanings? option
+(deftest test-import-with-replace-option
+  (testing "Import with replace-meanings? option replaces all meanings for words in the import file"
+    (let [deleted-words (atom [])
+          inserted-words (atom [])]
+      
+      ;; Mock functions for testing
+      (with-redefs [db/delete-word! (fn [word] (swap! deleted-words conj word))
+                    db/insert-word! (fn [word & args] (swap! inserted-words conj word) true)]
+        
+        ;; Create JSON with one word
+        (let [single-word-json "[{\"word\": \"apple\", \"transcription\": \"ˈæpl\", \"meanings\": [{\"description\": \"a fruit\", \"translation\": \"яблоко\", \"examples\": [\"Example\"]}]}]"
+              temp-file (create-temp-file-with-content single-word-json ".json")
+              result (imp/import-words-from-file (.getPath temp-file) true)] ;; Replace mode (replace-meanings? = true)
+          
+          ;; Check that "apple" was deleted and added
+          (is (= ["apple"] @deleted-words) "Word 'apple' should be deleted when replace-meanings? is true")
+          (is (= ["apple"] @inserted-words) "Word 'apple' should be inserted when replace-meanings? is true")
+          (is (= 1 result) "Should return 1 word imported with replace mode"))))))
+
+;; Test for standard behavior (preserving meanings)
+(deftest test-standard-import-behavior
+  (testing "Standard import behavior keeps existing meanings of words"
+    (let [word-data (atom {})
+          meaning-data (atom {})
+          example-data (atom {})
+          word-id-counter (atom 1)
+          meaning-id-counter (atom 1)
+          deleted-words (atom [])
+          meaning-added (atom [])
+          get-word-mock (atom {})]
+      
+      ;; Mock functions for DB
+      (with-redefs [
+        ;; Mock for word deletion
+        db/delete-word! (fn [word] 
+                          (swap! deleted-words conj word)
+                          (swap! word-data dissoc word)
+                          (println "Deleted word:" word))
+        
+        ;; Mock for word insertion with meaning
+        db/insert-word! (fn [word transcription description translation examples]
+                          (let [word-id @word-id-counter
+                                meaning-id @meaning-id-counter]
+                            (swap! word-id-counter inc)
+                            (swap! meaning-id-counter inc)
+                            (swap! word-data assoc word {:id word-id :word word})
+                            (swap! meaning-data assoc meaning-id 
+                                   {:id meaning-id 
+                                    :word_id word-id 
+                                    :transcription transcription 
+                                    :description description
+                                    :translation translation})
+                            (when examples
+                              (let [examples-list (clojure.string/split-lines examples)]
+                                (swap! example-data assoc meaning-id examples-list)))
+                            (println "Inserted word:" word "with meaning:" description)
+                            true))
+        
+        ;; Mock for adding meaning
+        db/add-meaning-to-word! (fn [word transcription description translation examples]
+                                  (let [word-record (get @word-data word)
+                                        word-id (if word-record 
+                                                  (:id word-record)
+                                                  (let [new-id @word-id-counter]
+                                                    (swap! word-id-counter inc)
+                                                    (swap! word-data assoc word {:id new-id :word word})
+                                                    new-id))
+                                        meaning-id @meaning-id-counter]
+                                    (swap! meaning-id-counter inc)
+                                    (swap! meaning-data assoc meaning-id 
+                                           {:id meaning-id 
+                                            :word_id word-id 
+                                            :transcription transcription 
+                                            :description description
+                                            :translation translation})
+                                    (when examples
+                                      (let [examples-list (clojure.string/split-lines examples)]
+                                        (swap! example-data assoc meaning-id examples-list)))
+                                    (swap! meaning-added conj 
+                                           {:word word :description description})
+                                    (println "Added meaning to word:" word "description:" description)
+                                    true))
+        
+        ;; Mock for getting a word
+        db/get-word-by-word (fn [word] (get @word-data word))]
+        
+        ;; 1. First add "apple" word with two meanings
+        (db/insert-word! "apple" "ˈæpl" "a fruit" "яблоко" "Example 1")
+        (db/insert-word! "apple" "ˈæpl" "a computer" "яблоко (компьютер)" "Example 2")
+        
+        ;; Check that we have 2 meanings
+        (is (= 2 (count @meaning-data)) "Should have 2 meanings before import")
+        
+        ;; 2. Import a new meaning for "apple" in standard mode (without replacing existing ones)
+        (let [new-meaning-json "[{\"word\": \"apple\", \"transcription\": \"ˈæpl\", \"meanings\": [{\"description\": \"a company\", \"translation\": \"Эппл\", \"examples\": [\"Apple makes iPhones\"]}]}]"
+              temp-file (create-temp-file-with-content new-meaning-json ".json")
+              result (imp/import-words-from-file (.getPath temp-file))]
+          
+          ;; Check that delete-word! wasn't called
+          (is (empty? @deleted-words) "No words should be deleted in standard mode")
+          
+          ;; Check that a new meaning was added
+          (is (= 1 (count @meaning-added)) "Should add one new meaning")
+          (is (= "a company" (:description (first @meaning-added))) "Should add the new company meaning")
+          
+          ;; After import there should be 3 meanings (2 old + 1 new)
+          (is (= 3 (count @meaning-data)) "Should have 3 meanings after import (2 old + 1 new)")
+          
+          ;; Check that the function returned the correct word count
+          (is (= 1 result) "Should return 1 word imported"))))))
+
+;; Test to verify that meanings are not duplicated on repeated imports
+(deftest test-import-does-not-duplicate-meanings
+  (testing "Repeated import doesn't duplicate meanings with the same description and translation"
+    (let [word-data (atom {})
+          meaning-data (atom {})
+          example-data (atom {})
+          word-id-counter (atom 1)
+          meaning-id-counter (atom 1)
+          meaning-added-count (atom 0)]
+      
+      ;; Mock functions for DB
+      (with-redefs [
+        ;; Mock for getting a word with its meanings
+        db/get-word-by-word (fn [word] 
+                              (let [word-data (get @word-data word)]
+                                (when word-data
+                                  (let [word-id (:id word-data)
+                                        meanings (filter #(= (:word_id (second %)) word-id) @meaning-data)]
+                                    (assoc word-data 
+                                           :meanings (map (fn [[id meaning]]
+                                                          (dissoc meaning :word_id)) 
+                                                        meanings))))))
+        
+        ;; Mock for word insertion
+        db/insert-word! (fn [word transcription description translation examples]
+                          (let [word-id @word-id-counter
+                                meaning-id @meaning-id-counter]
+                            (swap! word-id-counter inc)
+                            (swap! meaning-id-counter inc)
+                            (swap! word-data assoc word {:id word-id :word word})
+                            (swap! meaning-data assoc meaning-id 
+                                   {:id meaning-id 
+                                    :word_id word-id 
+                                    :transcription transcription 
+                                    :description description
+                                    :translation translation})
+                            (when examples
+                              (let [examples-list (clojure.string/split-lines examples)]
+                                (swap! example-data assoc meaning-id examples-list)))
+                            (swap! meaning-added-count inc)
+                            (println "Inserted word:" word "with meaning:" description)
+                            true))
+        
+        ;; Mock for adding a meaning
+        db/add-meaning-to-word! (fn [word transcription description translation examples]
+                                 (let [word-record (get @word-data word)
+                                       word-id (if word-record 
+                                                (:id word-record)
+                                                (let [new-id @word-id-counter]
+                                                  (swap! word-id-counter inc)
+                                                  (swap! word-data assoc word {:id new-id :word word})
+                                                  new-id))
+                                       meaning-id @meaning-id-counter]
+                                   (swap! meaning-id-counter inc)
+                                   (swap! meaning-data assoc meaning-id 
+                                          {:id meaning-id 
+                                           :word_id word-id 
+                                           :transcription transcription 
+                                           :description description
+                                           :translation translation})
+                                   (swap! meaning-added-count inc)
+                                   (println "Added meaning to word:" word "description:" description)
+                                   true))]
+        
+        ;; Create JSON with one word
+        (let [test-json "[{\"word\": \"apple\", \"transcription\": \"ˈæpl\", \"meanings\": [{\"description\": \"a fruit\", \"translation\": \"яблоко\", \"examples\": [\"Example\"]}]}]"
+              temp-file (create-temp-file-with-content test-json ".json")]
+          
+          ;; 1. First import - should add a new word
+          (let [result-1 (imp/import-words-from-file (.getPath temp-file))]
+            (is (= 1 result-1) "First import should return 1 word")
+            (is (= 1 @meaning-added-count) "First import should add 1 meaning"))
+          
+          ;; 2. Repeated import - meanings should not be duplicated
+          (reset! meaning-added-count 0) ;; Reset counter
+          (let [result-2 (imp/import-words-from-file (.getPath temp-file))]
+            (is (= 1 result-2) "Second import should return 1 word")
+            (is (= 0 @meaning-added-count) "Second import should not add any meanings because they already exist"))
+          
+          ;; 3. Add a new JSON with the same word but different meaning
+          (let [new-json "[{\"word\": \"apple\", \"transcription\": \"ˈæpl\", \"meanings\": [{\"description\": \"a computer company\", \"translation\": \"Эппл\", \"examples\": [\"Example 2\"]}]}]"
+                new-temp-file (create-temp-file-with-content new-json ".json")]
+            
+            (reset! meaning-added-count 0) ;; Reset counter
+            (let [result-3 (imp/import-words-from-file (.getPath new-temp-file))]
+              (is (= 1 result-3) "Third import with new meaning should return 1 word")
+              (is (= 1 @meaning-added-count) "Third import should add 1 new meaning")
+              
+              ;; Check that the word now has 2 meanings
+              (let [word-meanings (:meanings (db/get-word-by-word "apple"))]
+                (is (= 2 (count word-meanings)) "Word should have 2 meanings after imports")
+                (is (= #{"a fruit" "a computer company"} 
+                       (set (map :description word-meanings)))
+                    "Word should have both meanings"))))))))) 

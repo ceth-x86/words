@@ -185,25 +185,74 @@
       (println "Unknown file format, attempting to parse as markdown")
       (parse-markdown-words-file file-content))))
 
-(defn import-words-from-file [file-path]
-  (try
-    (let [file-content (slurp file-path)
-          file-format (detect-file-format file-path)
-          words-data (parse-words-file file-content file-format)
-          word-count (count words-data)
-          meaning-count (reduce + (map #(count (:meanings %)) words-data))]
-      (println (str "Found " word-count " words with " meaning-count " total meanings for import."))
-      
-      (doseq [{:keys [word transcription meanings]} words-data]
-        (doseq [{:keys [description translation examples]} meanings]
-          (db/insert-word! word 
-                           transcription 
-                           description 
-                           translation 
-                           (str/join "\n" examples))))
-      
-      word-count)
-    (catch Exception e
-      (println (str "Error importing from file " file-path ":"))
-      (println (.getMessage e))
-      0))) 
+(defn- meaning-exists? 
+  "Checks if a meaning with the given description and translation already exists for the word"
+  [word description translation]
+  (let [existing-word (db/get-word-by-word word)]
+    (when existing-word
+      (some (fn [meaning] 
+              (and (= description (:description meaning))
+                   (= translation (:translation meaning))))
+            (:meanings existing-word)))))
+
+(defn import-words-from-file 
+  "Imports words from a file. By default, adds new meanings to existing words
+   without deleting existing meanings. If a word doesn't exist in the database, it's created.
+   If replace-meanings? is true, all meanings for words in the import file will be replaced."
+  ([file-path] (import-words-from-file file-path false))
+  ([file-path replace-meanings?]
+   (try
+     (let [file-content (slurp file-path)
+           file-format (detect-file-format file-path)
+           words-data (parse-words-file file-content file-format)
+           word-count (count words-data)
+           meaning-count (reduce + (map #(count (:meanings %)) words-data))]
+       (println (str "Found " word-count " words with " meaning-count " total meanings for import."))
+       
+       (if replace-meanings?
+         (println "Replacing mode: will replace all meanings for words in import file")
+         (println "Standard mode: will add new meanings without deleting existing ones"))
+       
+       (doseq [{:keys [word transcription meanings]} words-data]
+         (if replace-meanings?
+           ;; Replacement mode - delete the word and add it again with all meanings
+           (do
+             (db/delete-word! word)
+             (doseq [{:keys [description translation examples]} meanings]
+               (db/insert-word! word 
+                               transcription 
+                               description 
+                               translation 
+                               (str/join "\n" examples))))
+           ;; Standard behavior - check if the word exists
+           (let [existing-word (db/get-word-by-word word)]
+             (if existing-word
+               ;; If the word exists, add only new meanings
+               (doseq [{:keys [description translation examples]} meanings]
+                 (when-not (meaning-exists? word description translation)
+                   (db/add-meaning-to-word! word 
+                                            transcription 
+                                            description 
+                                            translation 
+                                            (str/join "\n" examples))))
+               ;; If the word doesn't exist, add it with the first meaning
+               (when (not-empty meanings)
+                 (let [first-meaning (first meanings)]
+                   (db/insert-word! word 
+                                   transcription 
+                                   (:description first-meaning) 
+                                   (:translation first-meaning) 
+                                   (str/join "\n" (:examples first-meaning))))
+                 ;; Add the rest of the meanings (if any)
+                 (doseq [{:keys [description translation examples]} (rest meanings)]
+                   (db/add-meaning-to-word! word 
+                                           transcription 
+                                           description 
+                                           translation 
+                                           (str/join "\n" examples))))))))
+       
+       word-count)
+     (catch Exception e
+       (println (str "Error importing from file " file-path ":"))
+       (println (.getMessage e))
+       0)))) 
