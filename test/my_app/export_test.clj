@@ -6,31 +6,37 @@
             [clojure.java.io :as io])
   (:import (java.io File)))
 
-;; Test data
+;; Тестовые данные в новом формате
 (def test-word
   {:word "apple"
    :transcription "ˈæpl"
-   :description "A round fruit"
-   :translation "яблоко"
-   :examples "I ate an apple.\nShe likes green apples."})
+   :meanings [{:id 1
+               :transcription "ˈæpl"
+               :description "a round fruit with red skin"
+               :translation "яблоко"
+               :examples [{:text "I eat an apple every day."}
+                          {:text "She picked apples from the tree."}]}]})
 
 (def test-words
   [test-word
    {:word "banana"
     :transcription "bəˈnænə"
-    :description "A long curved fruit"
-    :translation "банан"
-    :examples "Monkeys eat bananas."}])
+    :meanings [{:id 2
+                :transcription "bəˈnænə"
+                :description "a long curved fruit"
+                :translation "банан"
+                :examples [{:text "Monkeys love bananas."}]}]}])
 
-;; Expected output for formatting tests
+;; Ожидаемый результат форматирования в новом формате
 (def expected-word-format
-  "**apple** /ˈæpl/ - A round fruit\n(яблоко)\n- I ate an apple.\n- She likes green apples.\n")
+  "- **apple** [ˈæpl]\n  - **Meaning**: a round fruit with red skin\n    - **Translation**: яблоко\n    - **Examples**:\n      - I eat an apple every day.\n      - She picked apples from the tree.\n\n")
 
-(def expected-words-format
-  (str "**apple** /ˈæpl/ - A round fruit\n(яблоко)\n- I ate an apple.\n- She likes green apples.\n\n"
-       "**banana** /bəˈnænə/ - A long curved fruit\n(банан)\n- Monkeys eat bananas.\n"))
+(def expected-words_format
+  (str "# Words\n\n"
+       "- **apple** [ˈæpl]\n  - **Meaning**: a round fruit with red skin\n    - **Translation**: яблоко\n    - **Examples**:\n      - I eat an apple every day.\n      - She picked apples from the tree.\n\n"
+       "- **banana** [bəˈnænə]\n  - **Meaning**: a long curved fruit\n    - **Translation**: банан\n    - **Examples**:\n      - Monkeys love bananas.\n\n"))
 
-;; Mock database functions
+;; Mock database функции
 (defn mock-get-all-words []
   test-words)
 
@@ -39,12 +45,12 @@
     [(first test-words)]
     []))
 
-;; Create temporary files for testing
+;; Создаем временные файлы для тестирования
 (defn temp-file [prefix]
-  (doto (File/createTempFile prefix ".txt")
+  (doto (File/createTempFile prefix ".md")
     (.deleteOnExit)))
 
-;; Test fixture to setup mock database functions
+;; Test fixture для настройки mock функций базы данных
 (defn with-mock-db [f]
   (with-redefs [db/get-all-words mock-get-all-words
                 db/search-words mock-search-words]
@@ -52,23 +58,23 @@
 
 (use-fixtures :each with-mock-db)
 
-;; Test word formatting
+;; Тест форматирования слова
 (deftest test-format-word-entry
   (testing "format-word-entry correctly formats a word entry"
     (let [formatted (exp/format-word-entry test-word)]
       (is (= expected-word-format formatted))))
   
   (testing "format-word-entry handles missing examples"
-    (let [word-without-examples (dissoc test-word :examples)
+    (let [word-without-examples (update-in test-word [:meanings 0 :examples] (constantly []))
           formatted (exp/format-word-entry word-without-examples)]
       (is (str/includes? formatted "**apple**"))
-      (is (str/includes? formatted "(яблоко)"))
+      (is (str/includes? formatted "**Translation**: яблоко"))
       (is (str/ends-with? formatted "\n")))))
 
 (deftest test-format-words-for-export
   (testing "format-words-for-export correctly formats multiple words"
     (let [formatted (exp/format-words-for-export test-words)]
-      (is (= expected-words-format formatted)))))
+      (is (= expected-words_format formatted)))))
 
 (deftest test-export-words-to-file
   (testing "export-words-to-file writes words to file"
@@ -76,7 +82,7 @@
           result (exp/export-words-to-file temp-file-path)
           file-content (slurp temp-file-path)]
       (is (= 2 result))
-      (is (= expected-words-format file-content))))
+      (is (= expected-words_format file-content))))
   
   (testing "export-words-to-file handles errors gracefully"
     (with-redefs [spit (fn [_ _] (throw (Exception. "Test error")))]
@@ -97,7 +103,7 @@
           result (exp/export-search-results-to-file "xyz" temp-file-path)
           file-content (slurp temp-file-path)]
       (is (= 0 result))
-      (is (= "" file-content))))
+      (is (= "# Words\n\n" file-content))))
   
   (testing "export-search-results-to-file handles errors gracefully"
     (with-redefs [spit (fn [_ _] (throw (Exception. "Test error")))]

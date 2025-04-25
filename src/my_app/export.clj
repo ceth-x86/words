@@ -3,16 +3,25 @@
             [clojure.java.io :as io]
             [my-app.db :as db]))
 
-(defn format-word-entry [{:keys [word transcription description translation examples]}]
-  (let [first-line (str "**" word "** /" transcription "/ - " description)
-        second-line (str "(" translation ")")
-        example-lines (when (and examples (not (str/blank? examples)))
-                        (map #(str "- " %) (str/split-lines examples)))
-        all-lines (concat [first-line second-line] example-lines [""])]
+(defn format-examples [examples]
+  (map #(str "      - " (:text %)) examples))
+
+(defn format-meaning [{:keys [transcription description translation examples]}]
+  (let [meaning-line (str "  - **Meaning**: " description)
+        translation-line (str "    - **Translation**: " translation)
+        examples-header "    - **Examples**:"
+        example-lines (format-examples examples)
+        all-lines (concat [meaning-line translation-line examples-header] example-lines)]
     (str/join "\n" all-lines)))
 
+(defn format-word-entry [{:keys [word meanings]}]
+  (let [word-header (str "- **" word "** [" (:transcription (first meanings)) "]")
+        formatted-meanings (map format-meaning meanings)
+        meanings-text (str/join "\n\n" formatted-meanings)]
+    (str word-header "\n" meanings-text "\n\n")))
+
 (defn format-words-for-export [words]
-  (str/join "\n" (map format-word-entry words)))
+  (str "# Words\n\n" (str/join "" (map format-word-entry words))))
 
 (defn export-words-to-file [file-path]
   (try

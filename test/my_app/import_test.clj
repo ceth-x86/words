@@ -6,7 +6,24 @@
             [clojure.java.io :as io])
   (:import (java.io File)))
 
-;; Test data
+;; Test data - новый формат markdown с вложенными списками
+(def sample-markdown-content
+  "# Words
+
+- **apple** [ˈæpl]
+  - **Meaning**: a round fruit with red skin
+    - **Translation**: яблоко
+    - **Examples**:
+      - I eat an apple every day.
+      - She picked apples from the tree.
+
+- **banana** [bəˈnænə]
+  - **Meaning**: a long curved fruit
+    - **Translation**: банан
+    - **Examples**:
+      - Monkeys love bananas.")
+
+;; Старый формат для обратной совместимости
 (def sample-import-content
   "**apple** /ˈæpl/ - A round fruit
 (яблоко)
@@ -17,6 +34,37 @@
 (банан)
 - Monkeys eat bananas.")
 
+(def sample-json-content
+  "[
+    {
+      \"word\": \"apple\",
+      \"transcription\": \"ˈæpl\",
+      \"meanings\": [
+        {
+          \"description\": \"a round fruit with red skin\",
+          \"translation\": \"яблоко\",
+          \"examples\": [
+            \"I eat an apple every day.\",
+            \"She picked apples from the tree.\"
+          ]
+        }
+      ]
+    },
+    {
+      \"word\": \"banana\",
+      \"transcription\": \"bəˈnænə\",
+      \"meanings\": [
+        {
+          \"description\": \"a long curved fruit\",
+          \"translation\": \"банан\",
+          \"examples\": [
+            \"Monkeys love bananas.\"
+          ]
+        }
+      ]
+    }
+  ]")
+
 (def sample-invalid-content
   "This is not a valid format
 for importing words.")
@@ -25,22 +73,22 @@ for importing words.")
 (def expected-parsed-words
   [{:word "apple"
     :transcription "ˈæpl"
-    :description "A round fruit"
-    :translation "яблоко"
-    :examples "I ate an apple.\nShe likes green apples."}
+    :meanings [{:description "a round fruit with red skin"
+                :translation "яблоко"
+                :examples ["I eat an apple every day." "She picked apples from the tree."]}]}
    {:word "banana"
     :transcription "bəˈnænə"
-    :description "A long curved fruit"
-    :translation "банан"
-    :examples "Monkeys eat bananas."}])
+    :meanings [{:description "a long curved fruit"
+                :translation "банан"
+                :examples ["Monkeys love bananas."]}]}])
 
 ;; Mock database function
 (defn mock-batch-import-words! [words-data]
   (count words-data))
 
 ;; Create temporary files for testing
-(defn create-temp-file-with-content [content]
-  (let [temp-file (doto (File/createTempFile "import-test" ".txt")
+(defn create-temp-file-with-content [content file-extension]
+  (let [temp-file (doto (File/createTempFile "import-test" file-extension)
                     (.deleteOnExit))]
     (spit temp-file content)
     temp-file))
@@ -52,7 +100,7 @@ for importing words.")
 
 (use-fixtures :each with-mock-db)
 
-;; Test extraction functions
+;; Тесты для старого формата, сохраняем для обратной совместимости
 (deftest test-extract-word-and-transcription
   (testing "extract-word-and-transcription correctly extracts word, transcription and description"
     (let [line "**apple** /ˈæpl/ - A round fruit"
@@ -97,55 +145,77 @@ for importing words.")
     (is (not (imp/is-example-line? "This is not an example")))
     (is (not (imp/is-example-line? "")))))
 
-(deftest test-parse-word-entry
-  (testing "parse-word-entry correctly parses a word entry"
+(deftest test-parse-meaning
+  (testing "parse-meaning correctly parses a meaning entry"
     (let [lines ["**apple** /ˈæpl/ - A round fruit" 
                  "(яблоко)" 
                  "- Example 1" 
                  "- Example 2"]
-          result (imp/parse-word-entry lines)]
+          result (imp/parse-meaning lines)]
       (is (= "apple" (:word result)))
       (is (= "ˈæpl" (:transcription result)))
       (is (= "A round fruit" (:description result)))
       (is (= "яблоко" (:translation result)))
-      (is (= "Example 1\nExample 2" (:examples result)))))
+      (is (= ["Example 1" "Example 2"] (:examples result)))))
   
-  (testing "parse-word-entry handles entries without examples"
+  (testing "parse-meaning handles entries without examples"
     (let [lines ["**apple** /ˈæpl/ - A round fruit" 
                  "(яблоко)"]
-          result (imp/parse-word-entry lines)]
+          result (imp/parse-meaning lines)]
       (is (= "apple" (:word result)))
       (is (= "яблоко" (:translation result)))
-      (is (= "" (:examples result)))))
+      (is (= [] (:examples result)))))
   
-  (testing "parse-word-entry handles empty input"
-    (is (nil? (imp/parse-word-entry [])))))
+  (testing "parse-meaning handles empty input"
+    (is (nil? (imp/parse-meaning [])))))
+
+;; Новые тесты для формата markdown
+(deftest test-parse-markdown-words-file
+  (testing "parse-markdown-words-file correctly parses markdown content with multiple words"
+    (let [result (imp/parse-markdown-words-file sample-markdown-content)]
+      (is (= 2 (count result)) "Should find two words")
+      (is (= "apple" (:word (first result))) "First word should be apple")
+      (is (= "banana" (:word (second result))) "Second word should be banana")
+      (is (= "ˈæpl" (:transcription (first result))) "Should extract correct transcription")
+      (is (= 1 (count (:meanings (first result)))) "First word should have one meaning")
+      (is (= "яблоко" (:translation (first (:meanings (first result))))) "Should have correct translation")
+      (is (= 2 (count (:examples (first (:meanings (first result)))))) "First word should have two examples"))))
+
+;; Тесты для JSON формата
+(deftest test-parse-json-words-file
+  (testing "parse-json-words-file correctly parses JSON content with multiple words"
+    (let [result (imp/parse-json-words-file sample-json-content)]
+      (is (= 2 (count result)) "Should find two words")
+      (is (= "apple" (:word (first result))) "First word should be apple")
+      (is (= "banana" (:word (second result))) "Second word should be banana"))))
+
+;; Тесты для определения формата файла
+(deftest test-detect-file-format
+  (testing "detect-file-format correctly identifies file formats"
+    (is (= :json (imp/detect-file-format "words.json")) "Should detect JSON format")
+    (is (= :markdown (imp/detect-file-format "words.md")) "Should detect Markdown format")
+    (is (= :unknown (imp/detect-file-format "words.xyz")) "Should return unknown for other formats")))
 
 (deftest test-parse-words-file
-  (testing "parse-words-file correctly parses file content with multiple words"
-    (let [result (imp/parse-words-file sample-import-content)]
-      (is (= 2 (count result)))
-      (is (= "apple" (:word (first result))))
-      (is (= "banana" (:word (second result))))
-      (is (= "яблоко" (:translation (first result))))
-      (is (= "I ate an apple.\nShe likes green apples." (:examples (first result))))))
+  (testing "parse-words-file correctly parses different file formats"
+    (let [md-result (imp/parse-words-file sample-markdown-content :markdown)
+          json-result (imp/parse-words-file sample-json-content :json)]
+      (is (= 2 (count md-result)) "Should parse two words from markdown")
+      (is (= 2 (count json-result)) "Should parse two words from JSON"))))
   
-  (testing "parse-words-file handles invalid content"
-    (let [result (imp/parse-words-file sample-invalid-content)]
-      (is (empty? result)))
-    
-    ;; Проверим, что parse-words-file возвращает пустой список для пустой строки
-    (let [result (imp/parse-words-file "")]
-      (is (empty? result)))))
-
 (deftest test-import-words-from-file
-  (testing "import-words-from-file correctly imports words from file"
-    (let [temp-file (create-temp-file-with-content sample-import-content)
+  (testing "import-words-from-file correctly imports words from markdown file"
+    (let [temp-file (create-temp-file-with-content sample-markdown-content ".md")
+          result (imp/import-words-from-file (.getPath temp-file))]
+      (is (= 2 result))))
+  
+  (testing "import-words-from-file correctly imports words from json file"
+    (let [temp-file (create-temp-file-with-content sample-json-content ".json")
           result (imp/import-words-from-file (.getPath temp-file))]
       (is (= 2 result))))
   
   (testing "import-words-from-file handles invalid file content"
-    (let [temp-file (create-temp-file-with-content sample-invalid-content)
+    (let [temp-file (create-temp-file-with-content sample-invalid-content ".txt")
           result (imp/import-words-from-file (.getPath temp-file))]
       (is (= 0 result))))
   

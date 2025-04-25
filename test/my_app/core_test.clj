@@ -25,47 +25,59 @@
 
 (deftest format-word-test
   (testing "format-word displays word fields correctly"
-    (let [test-word {:word "test"
-                    :transcription "tɛst"
-                    :description "A procedure for testing something"
-                    :translation "тест"
-                    :examples "This is a test example."}
+    (let [test-word {:id 1 
+                     :word "test"
+                     :meanings [{:id 1
+                                 :transcription "tɛst"
+                                 :description "A procedure for testing something"
+                                 :translation "тест"
+                                 :examples [{:text "This is a test example."}]}]}
           output (capture-stdout #(format-word test-word))]
       (is (str/includes? output "Word: test"))
+      (is (str/includes? output "Meanings: 1"))
       (is (str/includes? output "Transcription: tɛst"))
       (is (str/includes? output "Description: A procedure for testing something"))
       (is (str/includes? output "Translation: тест"))
-      (is (str/includes? output "Examples: This is a test example.")))))
+      (is (str/includes? output "This is a test example.")))))
 
 ;; Mock the DB interactions
 (defn with-mocked-db [f]
   (with-redefs [my-app.db/init-db! (fn [] nil)
                 my-app.db/get-all-words (fn [] 
-                                         [{:word "apple" 
-                                           :transcription "ˈæpl" 
-                                           :description "A fruit" 
-                                           :translation "яблоко" 
-                                           :examples "I ate an apple."
-                                           :created_at "2023-01-01T12:00:00Z"}])
-                my-app.db/insert-word! (fn [& args] nil)
+                                         [{:id 1 
+                                           :word "apple"
+                                           :meanings [{:id 1
+                                                       :transcription "ˈæpl" 
+                                                       :description "A fruit" 
+                                                       :translation "яблоко" 
+                                                       :examples [{:text "I ate an apple."}]}]}])
+                my-app.db/insert-word! (fn [& args] true)
+                my-app.db/add-meaning-to-word! (fn [& args] true)
+                my-app.db/update-meaning! (fn [& args] true)
+                my-app.db/delete-meaning! (fn [& args] true)
                 my-app.db/get-word-by-word (fn [word] 
                                             (when (= word "apple")
-                                              {:word "apple" 
-                                               :transcription "ˈæpl" 
-                                               :description "A fruit" 
-                                               :translation "яблоко" 
-                                               :examples "I ate an apple."
-                                               :created_at "2023-01-01T12:00:00Z"}))
-                my-app.db/update-word! (fn [& args] nil)
+                                              {:id 1 
+                                               :word "apple"
+                                               :meanings [{:id 1
+                                                           :transcription "ˈæpl" 
+                                                           :description "A fruit" 
+                                                           :translation "яблоко" 
+                                                           :examples [{:text "I ate an apple."}]}]}))
                 my-app.db/delete-word! (fn [& args] nil)
+                my-app.db/add-example-to-meaning! (fn [& args] true)
+                my-app.db/count-words (fn [] 1)
+                my-app.db/count-meanings (fn [] 2)
+                my-app.db/count-examples (fn [] 3)
                 my-app.db/search-words (fn [term] 
                                         (if (= term "apple")
-                                          [{:word "apple" 
-                                            :transcription "ˈæpl" 
-                                            :description "A fruit" 
-                                            :translation "яблоко" 
-                                            :examples "I ate an apple."
-                                            :created_at "2023-01-01T12:00:00Z"}]
+                                          [{:id 1 
+                                            :word "apple"
+                                            :meanings [{:id 1
+                                                        :transcription "ˈæpl" 
+                                                        :description "A fruit" 
+                                                        :translation "яблоко" 
+                                                        :examples [{:text "I ate an apple."}]}]}]
                                           []))
                 my-app.export/export-words-to-file (fn [file-path] 1)
                 my-app.export/export-search-results-to-file (fn [term file-path] 1)
@@ -78,12 +90,21 @@
   (testing "add-word function displays correct message"
     (let [output (capture-stdout #(add-word "test" "tɛst" "A test" "тест" "Example"))]
       (is (str/includes? output "Adding word: \"test\""))
-      (is (str/includes? output "Word successfully added")))))
+      (is (str/includes? output "Word or meaning successfully added")))))
+
+(deftest add-meaning-test
+  (testing "add-meaning function displays correct message"
+    (let [output (capture-stdout #(add-meaning "apple" "tɛst" "Another meaning" "тест" "Example"))]
+      (is (str/includes? output "Adding meaning to word: \"apple\""))
+      (is (str/includes? output "Meaning successfully added")))))
 
 (deftest show-words-test
   (testing "show-words displays all words"
     (let [output (capture-stdout show-words)]
       (is (str/includes? output "List of all English words:"))
+      (is (str/includes? output "Total words: 1"))
+      (is (str/includes? output "Total meanings: 2"))
+      (is (str/includes? output "Total examples: 3"))
       (is (str/includes? output "Word: apple")))))
 
 (deftest get-word-test
@@ -97,27 +118,34 @@
       (is (str/includes? output "Getting information about word: \"nonexistent\""))
       (is (str/includes? output "Word \"nonexistent\" not found")))))
 
-(deftest update-word-test
-  (testing "update-word function displays correct message for existing word"
-    (let [output (capture-stdout #(update-word "apple" "ˈæpl" "A fruit" "яблоко" "Updated example."))]
-      (is (str/includes? output "Updating word: \"apple\""))
-      (is (str/includes? output "Word successfully updated"))))
-  
-  (testing "update-word function displays not found message for non-existent word"
-    (let [output (capture-stdout #(update-word "nonexistent" "test" "test" "test" "test"))]
-      (is (str/includes? output "Updating word: \"nonexistent\""))
-      (is (str/includes? output "Word \"nonexistent\" not found")))))
+(deftest update-meaning-test
+  (testing "update-meaning function displays correct message"
+    (let [output (capture-stdout #(update-meaning "1" "ˈæpl" "A fruit" "яблоко"))]
+      (is (str/includes? output "Updating meaning: \"1\""))
+      (is (str/includes? output "Meaning successfully updated")))))
+
+(deftest delete-meaning-test
+  (testing "delete-meaning function displays correct message"
+    (let [output (capture-stdout #(delete-meaning "1"))]
+      (is (str/includes? output "Deleting meaning: \"1\""))
+      (is (str/includes? output "Meaning successfully deleted")))))
 
 (deftest delete-word-test
   (testing "delete-word function displays correct message for existing word"
     (let [output (capture-stdout #(delete-word "apple"))]
       (is (str/includes? output "Deleting word: \"apple\""))
-      (is (str/includes? output "Word successfully deleted"))))
+      (is (str/includes? output "Word and all its meanings successfully deleted"))))
   
   (testing "delete-word function displays not found message for non-existent word"
     (let [output (capture-stdout #(delete-word "nonexistent"))]
       (is (str/includes? output "Deleting word: \"nonexistent\""))
       (is (str/includes? output "Word \"nonexistent\" not found")))))
+
+(deftest add-example-test
+  (testing "add-example function displays correct message"
+    (let [output (capture-stdout #(add-example "1" "This is another example."))]
+      (is (str/includes? output "Adding example to meaning: \"1\""))
+      (is (str/includes? output "Example successfully added")))))
 
 (deftest search-words-test
   (testing "search-words function displays results when found"

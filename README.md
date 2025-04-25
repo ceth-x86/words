@@ -5,27 +5,47 @@ A Clojure application for studying English words with SQLite integration.
 ## Features
 
 - SQLite database integration
-- Store English words with transcription, description, translation, and examples
+- Store English words with multiple meanings, transcriptions, descriptions, translations, and examples
 - Command-line interface
 - REST API for all functionality
 - Search functionality
-- Word management (add, update, delete)
+- Word and meaning management (add, update, delete)
 - No duplicate words (words are unique)
 - Import words from formatted text files
 - Export words to formatted text files
+- Support for multiple meanings per word
 
 ## Database Schema
 
-The application creates a `words` table with the following structure:
+The application creates the following tables:
 
 ```sql
+-- Words table for storing unique words
 CREATE TABLE IF NOT EXISTS words (
-  word TEXT PRIMARY KEY NOT NULL,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  word TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(word)
+)
+
+-- Meanings table for storing different meanings of words
+CREATE TABLE IF NOT EXISTS meanings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  word_id INTEGER NOT NULL,
   transcription TEXT,
   description TEXT,
   translation TEXT NOT NULL,
-  examples TEXT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (word_id) REFERENCES words(id) ON DELETE CASCADE
+)
+
+-- Examples table for storing examples for each meaning
+CREATE TABLE IF NOT EXISTS examples (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  meaning_id INTEGER NOT NULL,
+  text TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (meaning_id) REFERENCES meanings(id) ON DELETE CASCADE
 )
 ```
 
@@ -42,20 +62,29 @@ lein run
 # Initialize the database
 lein run init
 
-# Add a new word (all parameters must be in quotes)
+# Add a new word or meaning (all parameters must be in quotes)
 lein run add "word" "transcription" "description" "translation" "examples"
+
+# Add a new meaning to an existing word
+lein run add-meaning "word" "transcription" "description" "translation" "examples"
 
 # Show all words in the database
 lein run show
 
-# Get a specific word
+# Get a specific word with all its meanings
 lein run get "word"
 
-# Update an existing word
-lein run update "word" "new_transcription" "new_description" "new_translation" "new_examples"
+# Update a specific meaning
+lein run update-meaning "meaning_id" "new_transcription" "new_description" "new_translation"
 
-# Delete a word
+# Delete a specific meaning
+lein run delete-meaning "meaning_id"
+
+# Delete a word and all its meanings
 lein run delete "word"
+
+# Add an example to a meaning
+lein run add-example "meaning_id" "example_text"
 
 # Search for words
 lein run search "term"
@@ -83,6 +112,13 @@ The application can import words from a text file with the following format:
 - Example 1.
 - Example 2.
 
+----------
+
+/transcription/ - alternate description
+(alternate translation)
+- Example 3.
+- Example 4.
+
 **next_word** /transcription/ - description 
 (translation)
 - Example 1.
@@ -92,6 +128,8 @@ Words are separated by blank lines. Each word entry follows this structure:
 1. First line: Word in `**double asterisks**`, followed by transcription in `/slashes/`, followed by description after a dash
 2. Second line: Translation in (parentheses)
 3. Subsequent lines: Examples, each starting with a dash (-) 
+4. Different meanings of the same word are separated by a delimiter line (---------- or ==========)
+5. For subsequent meanings, you only need to include the transcription, description, and translation (the word is implied)
 
 ### Examples
 
@@ -99,17 +137,26 @@ Words are separated by blank lines. Each word entry follows this structure:
 # Initialize the database
 lein run init
 
-# Add a new word
-lein run add "apple" "ˈæp(ə)l" "A round fruit with red, green, or yellow skin and crisp flesh" "яблоко" "I eat an apple every day. She likes green apples."
+# Add a new word with its first meaning
+lein run add "run" "rʌn" "to move quickly on foot" "бежать" "I run every morning.\nShe runs faster than me."
 
-# Get information about a specific word
-lein run get "apple"
+# Add another meaning to the existing word
+lein run add-meaning "run" "rʌn" "to operate or function" "работать" "The machine runs smoothly.\nThis program is running well."
 
-# Update a word
-lein run update "apple" "ˈæp(ə)l" "A round fruit with firm, juicy flesh and red, yellow, or green skin" "яблоко" "He gave me an apple. The apple tree is blooming."
+# Get information about a specific word (shows all meanings)
+lein run get "run"
 
-# Delete a word
-lein run delete "apple"
+# Update a specific meaning (requires the meaning ID)
+lein run update-meaning "2" "rʌn" "to operate or manage something" "управлять" 
+
+# Add an example to a meaning
+lein run add-example "2" "They run a successful business."
+
+# Delete a specific meaning
+lein run delete-meaning "2"
+
+# Delete a word and all its meanings
+lein run delete "run"
 
 # Search for words containing "app"
 lein run search "app"
@@ -136,20 +183,28 @@ lein run
 
 The application provides several functions for database operations:
 
-- `db/init-db!` - Initialize the database and create the table
-- `db/insert-word!` - Insert a new word with all its details
-- `db/get-all-words` - Get all words from the database
-- `db/get-word-by-word` - Get a specific word by its word string
-- `db/update-word!` - Update an existing word
-- `db/delete-word!` - Delete a word
+- `db/init-db!` - Initialize the database and create the tables
+- `db/insert-word!` - Insert a new word with a meaning and examples
+- `db/add-meaning-to-word!` - Add a new meaning to an existing word
+- `db/get-all-words` - Get all words with their meanings and examples
+- `db/get-word-by-word` - Get a specific word with all its meanings and examples
+- `db/update-meaning!` - Update a specific meaning
+- `db/delete-meaning!` - Delete a specific meaning
+- `db/delete-word!` - Delete a word and all its meanings
+- `db/add-example-to-meaning!` - Add an example to a meaning
+- `db/delete-example!` - Delete a specific example
 - `db/search-words` - Search for words by English word or translation
-- `db/batch-import-words!` - Import multiple words at once
+- `db/count-words` - Count the total number of words
+- `db/count-meanings` - Count the total number of meanings
+- `db/count-examples` - Count the total number of examples
 
 ## Export Functions
 
 The application provides several functions for exporting words:
 
-- `exp/format-word-entry` - Format a single word entry for export
+- `exp/format-examples` - Format examples for export
+- `exp/format-meaning` - Format a single meaning for export
+- `exp/format-word-entry` - Format a word entry with all its meanings for export
 - `exp/format-words-for-export` - Format multiple words for export
 - `exp/export-words-to-file` - Export all words to a file
 - `exp/export-search-results-to-file` - Export search results to a file
@@ -158,14 +213,27 @@ The application provides several functions for exporting words:
 
 The application also provides a REST API with the following endpoints:
 
-### Basic Endpoints
+### Word Endpoints
 
-- `GET /api/words` - Get all words
-- `GET /api/words/:word` - Get a specific word
+- `GET /api/words` - Get all words with meanings and examples
+- `GET /api/words/:word` - Get a specific word with meanings and examples
 - `GET /api/search?term=...` - Search for words
-- `POST /api/words` - Add a new word
-- `PUT /api/words/:word` - Update a word
-- `DELETE /api/words/:word` - Delete a word
+- `POST /api/words` - Add a new word with a meaning
+
+### Meaning Endpoints
+
+- `POST /api/words/:word/meanings` - Add a new meaning to a word
+- `PUT /api/meanings/:id` - Update a specific meaning
+- `DELETE /api/meanings/:id` - Delete a specific meaning
+
+### Example Endpoints
+
+- `POST /api/meanings/:id/examples` - Add an example to a meaning
+- `DELETE /api/examples/:id` - Delete a specific example
+
+### Word Management
+
+- `DELETE /api/words/:word` - Delete a word and all its meanings
 
 ### Database Management
 
@@ -186,44 +254,76 @@ GET /api/words
 
 #### Get a specific word
 ```
-GET /api/words/apple
+GET /api/words/run
 ```
 
 #### Search for words
 ```
-GET /api/search?term=app
+GET /api/search?term=run
 ```
 
-#### Add a new word
+#### Add a new word with a meaning
 ```
 POST /api/words
 Content-Type: application/json
 
 {
-  "word": "apple",
-  "transcription": "ˈæp(ə)l",
-  "description": "A round fruit with red, green, or yellow skin and crisp flesh",
-  "translation": "яблоко",
-  "examples": "I eat an apple every day.\nShe likes green apples."
+  "word": "run",
+  "transcription": "rʌn",
+  "description": "to move quickly on foot",
+  "translation": "бежать",
+  "examples": "I run every morning.\nShe runs faster than me."
 }
 ```
 
-#### Update a word
+#### Add a new meaning to a word
 ```
-PUT /api/words/apple
+POST /api/words/run/meanings
 Content-Type: application/json
 
 {
-  "transcription": "ˈæp(ə)l",
-  "description": "A round fruit with firm, juicy flesh and red, yellow, or green skin",
-  "translation": "яблоко",
-  "examples": "He gave me an apple.\nThe apple tree is blooming."
+  "transcription": "rʌn",
+  "description": "to operate or function",
+  "translation": "работать",
+  "examples": "The machine runs smoothly.\nThis program is running well."
 }
 ```
 
-#### Delete a word
+#### Update a meaning
 ```
-DELETE /api/words/apple
+PUT /api/meanings/2
+Content-Type: application/json
+
+{
+  "transcription": "rʌn",
+  "description": "to operate or manage something",
+  "translation": "управлять"
+}
+```
+
+#### Add an example to a meaning
+```
+POST /api/meanings/2/examples
+Content-Type: application/json
+
+{
+  "text": "They run a successful business."
+}
+```
+
+#### Delete a meaning
+```
+DELETE /api/meanings/2
+```
+
+#### Delete an example
+```
+DELETE /api/examples/3
+```
+
+#### Delete a word and all its meanings
+```
+DELETE /api/words/run
 ```
 
 #### Import words from a file
@@ -246,7 +346,7 @@ GET /api/export
 
 #### Export search results
 ```
-GET /api/export/search?term=app
+GET /api/export/search?term=run
 ```
 
 ### Curl Examples
@@ -263,44 +363,69 @@ curl -X POST http://localhost:3000/api/init
 curl http://localhost:3000/api/words
 ```
 
-#### Get a specific word
+#### Get a specific word with all its meanings
 ```bash
-curl http://localhost:3000/api/words/apple
+curl http://localhost:3000/api/words/run
 ```
 
 #### Search for words
 ```bash
-curl "http://localhost:3000/api/search?term=app"
+curl "http://localhost:3000/api/search?term=run"
 ```
 
-#### Add a new word
+#### Add a new word with a meaning
 ```bash
 curl -X POST http://localhost:3000/api/words \
      -H "Content-Type: application/json" \
      -d '{
-           "word": "apple",
-           "transcription": "ˈæp(ə)l",
-           "description": "A round fruit with red, green, or yellow skin and crisp flesh",
-           "translation": "яблоко",
-           "examples": "I eat an apple every day.\nShe likes green apples."
+           "word": "run",
+           "transcription": "rʌn",
+           "description": "to move quickly on foot",
+           "translation": "бежать",
+           "examples": "I run every morning.\nShe runs faster than me."
          }'
 ```
 
-#### Update a word
+#### Add a new meaning to a word
 ```bash
-curl -X PUT http://localhost:3000/api/words/apple \
+curl -X POST http://localhost:3000/api/words/run/meanings \
      -H "Content-Type: application/json" \
      -d '{
-           "transcription": "ˈæp(ə)l",
-           "description": "A round fruit with firm, juicy flesh and red, yellow, or green skin",
-           "translation": "яблоко",
-           "examples": "He gave me an apple.\nThe apple tree is blooming."
+           "transcription": "rʌn",
+           "description": "to operate or function",
+           "translation": "работать",
+           "examples": "The machine runs smoothly.\nThis program is running well."
          }'
 ```
 
-#### Delete a word
+#### Update a meaning
 ```bash
-curl -X DELETE http://localhost:3000/api/words/apple
+curl -X PUT http://localhost:3000/api/meanings/2 \
+     -H "Content-Type: application/json" \
+     -d '{
+           "transcription": "rʌn",
+           "description": "to operate or manage something",
+           "translation": "управлять"
+         }'
+```
+
+#### Add an example to a meaning
+```bash
+curl -X POST http://localhost:3000/api/meanings/2/examples \
+     -H "Content-Type: application/json" \
+     -d '{
+           "text": "They run a successful business."
+         }'
+```
+
+#### Delete a meaning
+```bash
+curl -X DELETE http://localhost:3000/api/meanings/2
+```
+
+#### Delete a word and all its meanings
+```bash
+curl -X DELETE http://localhost:3000/api/words/run
 ```
 
 #### Import words from a file
@@ -316,7 +441,7 @@ curl -o exported_words.txt http://localhost:3000/api/export
 
 #### Export search results
 ```bash
-curl -o search_results.txt "http://localhost:3000/api/export/search?term=app"
+curl -o search_results.txt "http://localhost:3000/api/export/search?term=run"
 ```
 
 ## Testing
@@ -372,11 +497,12 @@ The schema tests specifically verify:
 - NOT NULL constraints
 - Default values (timestamps)
 - Index creation
+- Foreign key constraints
 
 ### API Testing Strategy
 
 The API tests use Ring Mock to simulate HTTP requests and verify:
-- Correct response status codes (200, 404, 500)
+- Correct response status codes (200, 201, 400, 404, 500)
 - Proper JSON response formatting
 - Response headers (Content-Type, Content-Disposition)
 - Request parameter validation
@@ -392,6 +518,7 @@ The export and import tests verify:
 - Parsing of formatted text content
 - Extraction of word components (word, transcription, translation, etc.)
 - Handling of edge cases (empty inputs, invalid formats)
+- Multiple meanings per word
 
 ### Testing Approach
 

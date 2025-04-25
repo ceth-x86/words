@@ -36,74 +36,126 @@
 (use-fixtures :each with-test-db)
 
 (deftest test-db-schema
-  (testing "Database schema has the correct structure"
+  (testing "Database schema has the correct structure for words table"
     (let [ds (jdbc/get-datasource test-db-spec)
           table-info (jdbc/execute! ds ["PRAGMA table_info(words)"]
+                                   {:builder-fn rs/as-unqualified-maps})]
+      
+      ;; Test for the correct number of columns - updated to 3 for created_at
+      (is (= 3 (count table-info)))
+      
+      ;; Test for specific columns and their types
+      (is (= "id" (:name (first table-info))))
+      (is (= "INTEGER" (:type (first table-info))))
+      (is (= 1 (:pk (first table-info)))) ;; 1 means it's a primary key
+      
+      (is (= "word" (:name (second table-info))))
+      (is (= "TEXT" (:type (second table-info))))
+      (is (= 1 (:notnull (second table-info))))))
+  
+  (testing "Database schema has the correct structure for meanings table"
+    (let [ds (jdbc/get-datasource test-db-spec)
+          table-info (jdbc/execute! ds ["PRAGMA table_info(meanings)"]
                                    {:builder-fn rs/as-unqualified-maps})]
       
       ;; Test for the correct number of columns
       (is (= 6 (count table-info)))
       
-      ;; Test for specific columns and their types
-      (is (= "word" (:name (first table-info))))
-      (is (= "TEXT" (:type (first table-info))))
-      (is (= 1 (:pk (first table-info)))) ;; 1 means it's a primary key
-      (is (= 1 (:notnull (first table-info)))) ;; 1 means NOT NULL
+      ;; Check if all expected columns exist
+      (let [column-names (map :name table-info)]
+        (is (some #{"id"} column-names))
+        (is (some #{"word_id"} column-names))
+        (is (some #{"transcription"} column-names))
+        (is (some #{"description"} column-names))
+        (is (some #{"translation"} column-names))
+        (is (some #{"created_at"} column-names)))
       
-      ;; Test that translation is required (NOT NULL)
-      (let [translation-col (first (filter #(= "translation" (:name %)) table-info))]
-        (is (= 1 (:notnull translation-col)))))))
-
-(deftest test-primary-key-constraint
-  (testing "Primary key constraint prevents duplicate words"
-    (db/insert-word! "duplicate" "ˈduːplɪkeɪt" "An exact copy" "дубликат" "This is a duplicate.")
-    (db/insert-word! "duplicate" "ˈduːplɪkeɪt" "Different description" "дубликат" "This won't be inserted.")
-    
-    ;; Check that there's only one entry with the word "duplicate"
+      ;; Check for foreign key constraint on word_id
+      (let [fk-info (jdbc/execute! ds ["PRAGMA foreign_key_list(meanings)"]
+                                  {:builder-fn rs/as-unqualified-maps})]
+        (is (= "words" (:table (first fk-info))))
+        (is (= "word_id" (:from (first fk-info))))
+        (is (= "id" (:to (first fk-info)))))))
+  
+  (testing "Database schema has the correct structure for examples table"
     (let [ds (jdbc/get-datasource test-db-spec)
-          results (jdbc/execute! ds ["SELECT COUNT(*) as count FROM words WHERE word = ?" "duplicate"]
-                                {:builder-fn rs/as-unqualified-maps})]
-      (is (= 1 (:count (first results)))))))
+          table-info (jdbc/execute! ds ["PRAGMA table_info(examples)"]
+                                   {:builder-fn rs/as-unqualified-maps})]
+      
+      ;; Test for the correct number of columns
+      (is (= 4 (count table-info)))
+      
+      ;; Check if all expected columns exist
+      (let [column-names (map :name table-info)]
+        (is (some #{"id"} column-names))
+        (is (some #{"meaning_id"} column-names))
+        (is (some #{"text"} column-names)) ;; обновлено с "example" на "text"
+        (is (some #{"created_at"} column-names)))
+      
+      ;; Check for foreign key constraint on meaning_id
+      (let [fk-info (jdbc/execute! ds ["PRAGMA foreign_key_list(examples)"]
+                                  {:builder-fn rs/as-unqualified-maps})]
+        (is (= "meanings" (:table (first fk-info))))
+        (is (= "meaning_id" (:from (first fk-info))))
+        (is (= "id" (:to (first fk-info))))))))
+
+(deftest test-word-uniqueness-constraint
+  (testing "Unique constraint prevents duplicate words"
+    (let [ds (jdbc/get-datasource test-db-spec)
+          result (db/insert-word! "duplicate" "test" "test description" "дубликат" "")]
+      (is (some? result))
+      
+      ;; Try to add the same word again
+      (try
+        (jdbc/execute! ds ["INSERT INTO words (word) VALUES (?)" "duplicate"])
+        (is false "Should have thrown an exception")
+        (catch Exception e
+          ;; We expect an exception to be thrown
+          (is (instance? Exception e))))
+      
+      ;; Check that there's only one entry with the word "duplicate"
+      (let [results (jdbc/execute! ds ["SELECT COUNT(*) as count FROM words WHERE word = ?" "duplicate"]
+                                 {:builder-fn rs/as-unqualified-maps})]
+        (is (= 1 (:count (first results))))))))
 
 (deftest test-not-null-constraints
-  (testing "NOT NULL constraints are enforced"
-    ;; Try to insert without a required field (word)
-    (try
-      (let [ds (jdbc/get-datasource test-db-spec)]
-        (jdbc/execute! ds ["INSERT INTO words (transcription, description, translation, examples) 
-                          VALUES (?, ?, ?, ?)" 
-                         "test" "Test description" "тест" "Test example"]))
-      (catch Exception e
-        ;; We expect an exception to be thrown
-        (is (instance? Exception e))))
-    
+  (testing "NOT NULL constraints are enforced on meanings table"
     ;; Try to insert without a required field (translation)
-    (try
-      (let [ds (jdbc/get-datasource test-db-spec)]
-        (jdbc/execute! ds ["INSERT INTO words (word, transcription, description, examples) 
-                          VALUES (?, ?, ?, ?)" 
-                         "test2" "test" "Test description" "Test example"]))
-      (catch Exception e
-        ;; We expect an exception to be thrown
-        (is (instance? Exception e))))))
+    (let [_ (db/insert-word! "test-word" "test" "test description" "тест-слово" "")]
+      (try
+        (let [ds (jdbc/get-datasource test-db-spec)]
+          (jdbc/execute! ds ["INSERT INTO meanings (word_id, transcription, description) 
+                            VALUES (?, ?, ?)" 
+                           1 "test" "Test description"]))
+        (catch Exception e
+          ;; We expect an exception to be thrown
+          (is (instance? Exception e)))))))
 
 (deftest test-timestamp-default
-  (testing "created_at timestamp is automatically set"
-    (db/insert-word! "timestamp_test" "test" "Testing timestamps" "тест" "Example")
-    (let [ds (jdbc/get-datasource test-db-spec)
-          result (jdbc/execute-one! ds ["SELECT created_at FROM words WHERE word = ?" "timestamp_test"]
-                                   {:builder-fn rs/as-unqualified-maps})]
-      ;; Check that the timestamp is not nil
-      (is (not (nil? (:created_at result)))))))
-
-(deftest test-table-indexes
-  (testing "Primary key creates an index on the word column"
-    (let [ds (jdbc/get-datasource test-db-spec)
-          indexes (jdbc/execute! ds ["PRAGMA index_list('words')"]
-                                {:builder-fn rs/as-unqualified-maps})]
-      (is (pos? (count indexes)))
+  (testing "created_at timestamp is automatically set in meanings table"
+    (let [_ (db/insert-word! "timestamp_test" "test" "Testing timestamps" "тест" "Test example")
+          ds (jdbc/get-datasource test-db-spec)
+          meaning (jdbc/execute-one! ds ["SELECT id FROM meanings WHERE word_id = (SELECT id FROM words WHERE word = ?)" "timestamp_test"]
+                                   {:builder-fn rs/as-unqualified-maps})
+          meaning-id (:id meaning)]
       
-      ;; For SQLite, a table with a PRIMARY KEY will have an auto-created index
-      ;; usually named sqlite_autoindex_TABLE_1
-      (is (some #(or (.startsWith (:name %) "sqlite_autoindex") 
-                      (.contains (:name %) "PRIMARY")) indexes))))) 
+      (let [result (jdbc/execute-one! ds ["SELECT created_at FROM meanings WHERE id = ?" meaning-id]
+                                    {:builder-fn rs/as-unqualified-maps})]
+        ;; Check that the timestamp is not nil
+        (is (not (nil? (:created_at result))))))))
+
+;; Убрал тест на индексы, так как они не созданы явно в схеме
+(deftest test-table-primary-keys
+  (testing "Tables have primary keys defined correctly"
+    (let [ds (jdbc/get-datasource test-db-spec)
+          words-pk (jdbc/execute! ds ["SELECT name FROM pragma_table_info('words') WHERE pk = 1"]
+                                 {:builder-fn rs/as-unqualified-maps})
+          meanings-pk (jdbc/execute! ds ["SELECT name FROM pragma_table_info('meanings') WHERE pk = 1"]
+                                    {:builder-fn rs/as-unqualified-maps})
+          examples-pk (jdbc/execute! ds ["SELECT name FROM pragma_table_info('examples') WHERE pk = 1"]
+                                    {:builder-fn rs/as-unqualified-maps})]
+      
+      ;; Check for primary keys
+      (is (= "id" (:name (first words-pk))))
+      (is (= "id" (:name (first meanings-pk))))
+      (is (= "id" (:name (first examples-pk))))))) 

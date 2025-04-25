@@ -10,12 +10,15 @@
 (defn show-usage []
   (println "Usage:")
   (println "  lein run init                   - Initialize the database")
-  (println "  lein run add \"word\" \"transcription\" \"description\" \"translation\" \"examples\" - Add a new word")
+  (println "  lein run add \"word\" \"transcription\" \"description\" \"translation\" \"examples\" - Add a new word or meaning")
+  (println "  lein run add-meaning \"word\" \"transcription\" \"description\" \"translation\" \"examples\" - Add a new meaning to existing word")
   (println "  lein run show                   - Show all words")
   (println "  lein run search \"term\"          - Search for words")
   (println "  lein run get \"word\"             - Show a specific word")
-  (println "  lein run update \"word\" \"transcription\" \"description\" \"translation\" \"examples\" - Update a word")
-  (println "  lein run delete \"word\"          - Delete a word")
+  (println "  lein run update-meaning \"meaning_id\" \"transcription\" \"description\" \"translation\" - Update a meaning")
+  (println "  lein run delete-meaning \"meaning_id\" - Delete a meaning")
+  (println "  lein run delete \"word\"          - Delete a word and all its meanings")
+  (println "  lein run add-example \"meaning_id\" \"example\" - Add an example to a meaning")
   (println "  lein run import \"file_path\"     - Import words from a file")
   (println "  lein run export \"file_path\"     - Export all words to a file")
   (println "  lein run export-search \"term\" \"file_path\" - Export search results to a file")
@@ -29,23 +32,46 @@
 (defn add-word [word transcription description translation examples]
   (println (str "Adding word: \"" word "\""))
   (db/insert-word! word transcription description translation examples)
-  (println "Word successfully added."))
+  (println "Word or meaning successfully added."))
+
+(defn add-meaning [word transcription description translation examples]
+  (println (str "Adding meaning to word: \"" word "\""))
+  (db/add-meaning-to-word! word transcription description translation examples)
+  (println "Meaning successfully added."))
+
+(defn format-example [example]
+  (println (str "  - " (:text example))))
+
+(defn format-meaning [meaning]
+  (println (str "  Meaning ID: " (:id meaning)))
+  (println (str "  Transcription: " (:transcription meaning)))
+  (println (str "  Description: " (:description meaning)))
+  (println (str "  Translation: " (:translation meaning)))
+  (println "  Examples:")
+  (if (empty? (:examples meaning))
+    (println "    No examples")
+    (doseq [example (:examples meaning)]
+      (format-example example)))
+  (println))
 
 (defn format-word [word]
-  (println (str "Word: " (:word word) 
-                "\nTranscription: " (:transcription word) 
-                "\nDescription: " (:description word)
-                "\nTranslation: " (:translation word) 
-                "\nExamples: " (:examples word)
-                "\n")))
+  (println (str "Word: " (:word word) " (ID: " (:id word) ")"))
+  (println (str "Meanings: " (count (:meanings word))))
+  (doseq [meaning (:meanings word)]
+    (format-meaning meaning))
+  (println "------------------------"))
 
 (defn show-words []
   (println "List of all English words:")
   (let [words (db/get-all-words)]
     (if (empty? words)
       (println "Database is empty.")
-      (doseq [word words]
-        (format-word word)))))
+      (do
+        (println (str "Total words: " (count words) 
+                     ", Total meanings: " (db/count-meanings)
+                     ", Total examples: " (db/count-examples)))
+        (doseq [word words]
+          (format-word word))))))
 
 (defn get-word [word-str]
   (println (str "Getting information about word: \"" word-str "\""))
@@ -53,21 +79,28 @@
     (format-word word)
     (println (str "Word \"" word-str "\" not found."))))
 
-(defn update-word [word transcription description translation examples]
-  (println (str "Updating word: \"" word "\""))
-  (if (db/get-word-by-word word)
-    (do
-      (db/update-word! word transcription description translation examples)
-      (println "Word successfully updated."))
-    (println (str "Word \"" word "\" not found."))))
+(defn update-meaning [meaning-id transcription description translation]
+  (println (str "Updating meaning: \"" meaning-id "\""))
+  (db/update-meaning! meaning-id transcription description translation)
+  (println "Meaning successfully updated."))
+
+(defn delete-meaning [meaning-id]
+  (println (str "Deleting meaning: \"" meaning-id "\""))
+  (db/delete-meaning! meaning-id)
+  (println "Meaning successfully deleted."))
 
 (defn delete-word [word]
   (println (str "Deleting word: \"" word "\""))
   (if (db/get-word-by-word word)
     (do
       (db/delete-word! word)
-      (println "Word successfully deleted."))
+      (println "Word and all its meanings successfully deleted."))
     (println (str "Word \"" word "\" not found."))))
+
+(defn add-example [meaning-id example-text]
+  (println (str "Adding example to meaning: \"" meaning-id "\""))
+  (db/add-example-to-meaning! meaning-id example-text)
+  (println "Example successfully added."))
 
 (defn search-words [term]
   (println (str "Searching for words with query: \"" term "\""))
@@ -119,6 +152,11 @@
       (add-word (nth args 1) (nth args 2) (nth args 3) (nth args 4) (nth args 5))
       (println "Error: The add command requires a word, transcription, description, translation, and examples."))
     
+    (= (first args) "add-meaning")
+    (if (>= (count args) 6)
+      (add-meaning (nth args 1) (nth args 2) (nth args 3) (nth args 4) (nth args 5))
+      (println "Error: The add-meaning command requires a word, transcription, description, translation, and examples."))
+    
     (= (first args) "show")
     (show-words)
     
@@ -127,15 +165,25 @@
       (get-word (nth args 1))
       (println "Error: The get command requires a word."))
     
-    (= (first args) "update")
-    (if (>= (count args) 6)
-      (update-word (nth args 1) (nth args 2) (nth args 3) (nth args 4) (nth args 5))
-      (println "Error: The update command requires a word, transcription, description, translation, and examples."))
+    (= (first args) "update-meaning")
+    (if (>= (count args) 5)
+      (update-meaning (nth args 1) (nth args 2) (nth args 3) (nth args 4))
+      (println "Error: The update-meaning command requires a meaning_id, transcription, description, and translation."))
+    
+    (= (first args) "delete-meaning")
+    (if (>= (count args) 2)
+      (delete-meaning (nth args 1))
+      (println "Error: The delete-meaning command requires a meaning_id."))
     
     (= (first args) "delete")
     (if (>= (count args) 2)
       (delete-word (nth args 1))
       (println "Error: The delete command requires a word."))
+    
+    (= (first args) "add-example")
+    (if (>= (count args) 3)
+      (add-example (nth args 1) (nth args 2))
+      (println "Error: The add-example command requires a meaning_id and example text."))
     
     (= (first args) "search")
     (if (>= (count args) 2)

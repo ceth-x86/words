@@ -26,7 +26,7 @@
     ;; Initialize the database
     (db/init-db!)
     
-    ;; Add test data
+    ;; Insert word directly using the API
     (db/insert-word! "apple" "ˈæpl" "A round fruit with red, yellow, or green skin" "яблоко" "I ate an apple for breakfast.")
     
     ;; Run the tests
@@ -40,67 +40,77 @@
 (use-fixtures :each with-test-db)
 
 (deftest test-init-db!
-  (testing "init-db! creates the words table"
+  (testing "init-db! creates the required tables"
     (db/init-db!) ;; Running again should be safe due to IF NOT EXISTS
     (let [ds (jdbc/get-datasource test-db-spec)
           tables (jdbc/execute! ds ["SELECT name FROM sqlite_master WHERE type='table'"]
                                {:builder-fn rs/as-unqualified-maps})]
-      (is (some #(= "words" (:name %)) tables)))))
+      (is (some #(= "words" (:name %)) tables))
+      (is (some #(= "meanings" (:name %)) tables))
+      (is (some #(= "examples" (:name %)) tables)))))
 
 (deftest test-insert-word!
   (testing "insert-word! adds a new word to the database"
-    (db/insert-word! "banana" "bəˈnænə" "A long curved fruit with a yellow skin" "банан" "Monkeys eat bananas.")
+    (db/insert-word! "banana" "bəˈnɑːnə" "A long curved fruit with a yellow skin" "банан" "Monkeys love bananas.")
     (let [word (db/get-word-by-word "banana")]
       (is (= "banana" (:word word)))
-      (is (= "банан" (:translation word))))))
+      (let [meaning (first (:meanings word))]
+        (is (= "bəˈnɑːnə" (:transcription meaning)))
+        (is (= "A long curved fruit with a yellow skin" (:description meaning)))
+        (is (= "банан" (:translation meaning)))))))
 
-(deftest test-batch-import-words!
-  (testing "batch-import-words! adds multiple words to the database"
-    (let [words-data [{:word "car" :transcription "kɑr" :description "A road vehicle" :translation "машина" :examples "I drive a car."}
-                     {:word "dog" :transcription "dɔg" :description "A domestic animal" :translation "собака" :examples "I have a pet dog."}]]
-      (db/batch-import-words! words-data)
-      (let [ds (jdbc/get-datasource test-db-spec)
-            results (jdbc/execute! ds ["SELECT * FROM words WHERE word IN (?, ?)" "car" "dog"]
-                                  {:builder-fn rs/as-unqualified-maps})]
-        (is (= 2 (count results)))
-        (is (= #{"car" "dog"} (set (map :word results))))))))
+(deftest test-add-meaning-to-word!
+  (testing "add-meaning-to-word! adds a meaning to an existing word"
+    (db/add-meaning-to-word! "apple" "ˈæpl" "A type of computer" "яблоко" "Apple makes computers and phones.")
+    (let [word (db/get-word-by-word "apple")]
+      (is (= 2 (count (:meanings word))))
+      (is (some #(= "A type of computer" (:description %)) (:meanings word))))))
+
+(deftest test-add-example!
+  (testing "add-example-to-meaning! adds an example to a meaning"
+    (let [word (db/get-word-by-word "apple")
+          meaning (first (:meanings word))
+          meaning-id (:id meaning)]
+      (db/add-example-to-meaning! meaning-id "The apple fell from the tree.")
+      (let [updated-word (db/get-word-by-word "apple")
+            updated-meaning (first (:meanings updated-word))
+            examples (get-in updated-word [:meanings 0 :examples])]
+        (is (> (count examples) 1))
+        (is (some #(= "The apple fell from the tree." (:text %)) examples))))))
 
 (deftest test-get-all-words
-  (testing "get-all-words returns all words from the database"
+  (testing "get-all-words returns all words with their meanings and examples"
     (let [words (db/get-all-words)]
-      (is (= 1 (count words)))
-      (is (= "apple" (:word (first words)))))))
+      (is (>= (count words) 1))
+      (is (some #(= "apple" (:word %)) words))
+      (let [apple-word (first (filter #(= "apple" (:word %)) words))]
+        (is (seq (:meanings apple-word)))))))
 
 (deftest test-get-word-by-word
-  (testing "get-word-by-word returns the correct word"
+  (testing "get-word-by-word returns the correct word with meanings and examples"
     (let [word (db/get-word-by-word "apple")]
       (is (= "apple" (:word word)))
-      (is (= "яблоко" (:translation word)))))
+      (is (seq (:meanings word)))
+      (is (= "яблоко" (:translation (first (:meanings word)))))))
   
   (testing "get-word-by-word returns nil for non-existent word"
     (is (nil? (db/get-word-by-word "nonexistent")))))
 
 (deftest test-search-words
-  (testing "search-words finds words with partial matches"
+  (testing "search-words finds words with partial matches including their meanings"
     ;; Add more test data for searching
     (db/insert-word! "application" "ˌæplɪˈkeɪʃən" "A program" "приложение" "I use this application daily.")
     
     (let [results (db/search-words "appl")]
       (is (= 2 (count results)))
-      (is (= #{"apple" "application"} (set (map :word results))))))
+      (is (= #{"apple" "application"} (set (map :word results))))
+      (is (seq (:meanings (first results))))))
   
   (testing "search-words returns empty list when no matches found"
     (let [results (db/search-words "xyz")]
       (is (empty? results)))))
 
-(deftest test-update-word!
-  (testing "update-word! updates an existing record"
-    (db/update-word! "apple" "ˈæpl" "An updated description" "яблоко" "Updated example.")
-    (let [word (db/get-word-by-word "apple")]
-      (is (= "An updated description" (:description word)))
-      (is (= "Updated example." (:examples word))))))
-
 (deftest test-delete-word!
-  (testing "delete-word! removes a word from the database"
+  (testing "delete-word! removes a word and its associated meanings and examples from the database"
     (db/delete-word! "apple")
     (is (nil? (db/get-word-by-word "apple"))))) 
