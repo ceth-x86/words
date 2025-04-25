@@ -2,6 +2,14 @@
 
 A Clojure application for studying English words with SQLite integration.
 
+## Continuous Integration
+
+This project uses GitHub Actions to automatically run tests on every push and pull request to the main branch. The workflow is configured in `.github/workflows/clojure.yml`.
+
+[![Clojure Tests](https://github.com/ceth-x86/words/actions/workflows/clojure.yml/badge.svg)](https://github.com/ceth-x86/words/actions/workflows/clojure.yml)
+
+To view test results, go to the Actions tab in the GitHub repository.
+
 ## Features
 
 - SQLite database integration

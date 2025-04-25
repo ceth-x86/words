@@ -149,7 +149,8 @@
   (try
     (if-let [file (:file params)]
       (let [content (read-file-content file)
-            words-data (imp/parse-words-file content)
+            file-format (imp/detect-file-format (:filename file))
+            words-data (imp/parse-words-file content file-format)
             word-count (count words-data)
             meaning-count (reduce + (map #(count (:meanings %)) words-data))]
         
