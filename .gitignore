@@ -12,5 +12,5 @@ pom.xml.asc
 .hgignore
 .hg/
 .clj-kondo/
-resources/
+resources/english_words.db
 .lsp/
