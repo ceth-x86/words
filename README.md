@@ -97,14 +97,17 @@ lein run add-example "meaning_id" "example_text"
 # Search for words
 lein run search "term"
 
-# Import words from a file
-lein run import "path/to/file.txt"
+# Import words from a markdown file
+lein run import "resources/words.md"
+
+# Import words from a JSON file
+lein run import "resources/words.json"
 
 # Export all words to a file
-lein run export "path/to/file.txt"
+lein run export "resources/exported_words.md"
 
 # Export search results to a file
-lein run export-search "search_term" "path/to/file.txt"
+lein run export-search "app" "resources/app_words.md"
 
 # Start the REST API server (optional port, default 3000)
 lein run server [port]
@@ -112,32 +115,38 @@ lein run server [port]
 
 ### Import Format
 
-The application can import words from a text file with the following format:
+The application can import words from a markdown file with the following format:
 
+```markdown
+# Words
+
+- **word** [transcription]
+  - **Meaning**: description
+    - **Translation**: translation
+    - **Examples**:
+      - Example 1.
+      - Example 2.
+  - **Meaning**: alternate description
+    - **Translation**: alternate translation
+    - **Examples**:
+      - Example 3.
+      - Example 4.
+
+- **next_word** [transcription]
+  - **Meaning**: description
+    - **Translation**: translation
+    - **Examples**:
+      - Example 1.
 ```
-**word** /transcription/ - description 
-(translation)
-- Example 1.
-- Example 2.
 
-----------
+Words are separated by the `- **word**` pattern. Each word entry follows this structure:
+1. Word line: Word in `**double asterisks**`, followed by transcription in `[square brackets]`
+2. Each meaning is a nested bullet point under the word starting with `- **Meaning**:`
+3. Translation is a further nested bullet point starting with `- **Translation**:`
+4. Examples are listed as bullet points under the `- **Examples**:` section
+5. Multiple meanings for the same word are added as separate `- **Meaning**:` sections
 
-/transcription/ - alternate description
-(alternate translation)
-- Example 3.
-- Example 4.
-
-**next_word** /transcription/ - description 
-(translation)
-- Example 1.
-```
-
-Words are separated by blank lines. Each word entry follows this structure:
-1. First line: Word in `**double asterisks**`, followed by transcription in `/slashes/`, followed by description after a dash
-2. Second line: Translation in (parentheses)
-3. Subsequent lines: Examples, each starting with a dash (-) 
-4. Different meanings of the same word are separated by a delimiter line (---------- or ==========)
-5. For subsequent meanings, you only need to include the transcription, description, and translation (the word is implied)
+The application also supports importing from JSON format with a similar structure.
 
 ### Examples
 
@@ -169,14 +178,17 @@ lein run delete "run"
 # Search for words containing "app"
 lein run search "app"
 
-# Import words from a file
-lein run import "resources/sample_words.txt"
+# Import words from a markdown file
+lein run import "resources/words.md"
+
+# Import words from a JSON file
+lein run import "resources/words.json"
 
 # Export all words to a file
-lein run export "resources/exported_words.txt"
+lein run export "resources/exported_words.md"
 
 # Export search results to a file
-lein run export-search "app" "resources/app_words.txt"
+lein run export-search "app" "resources/app_words.md"
 ```
 
 ### Default behavior
@@ -340,10 +352,46 @@ POST /api/import
 Content-Type: multipart/form-data; boundary=----FormBoundary
 
 ------FormBoundary
-Content-Disposition: form-data; name="file"; filename="words.txt"
-Content-Type: text/plain
+Content-Disposition: form-data; name="file"; filename="words.md"
+Content-Type: text/markdown
 
-... file content ...
+# Words
+
+- **word** [transcription]
+  - **Meaning**: description
+    - **Translation**: translation
+    - **Examples**:
+      - Example 1.
+      - Example 2.
+
+------FormBoundary--
+```
+
+#### Import words from a JSON file
+```
+POST /api/import
+Content-Type: multipart/form-data; boundary=----FormBoundary
+
+------FormBoundary
+Content-Disposition: form-data; name="file"; filename="words.json"
+Content-Type: application/json
+
+[
+  {
+    "word": "example",
+    "transcription": "ɪɡˈzɑːmpəl",
+    "meanings": [
+      {
+        "description": "a thing characteristic of its kind",
+        "translation": "пример",
+        "examples": [
+          "This is an example of how the format works.",
+          "The app provides examples for each word."
+        ]
+      }
+    ]
+  }
+]
 ------FormBoundary--
 ```
 
@@ -439,17 +487,23 @@ curl -X DELETE http://localhost:3000/api/words/run
 #### Import words from a file
 ```bash
 curl -X POST http://localhost:3000/api/import \
-     -F "file=@/path/to/words.txt"
+     -F "file=@/path/to/words.md"
+```
+
+#### Import words from a JSON file
+```bash
+curl -X POST http://localhost:3000/api/import \
+     -F "file=@/path/to/words.json"
 ```
 
 #### Export all words
 ```bash
-curl -o exported_words.txt http://localhost:3000/api/export
+curl -o exported_words.md http://localhost:3000/api/export
 ```
 
 #### Export search results
 ```bash
-curl -o search_results.txt "http://localhost:3000/api/export/search?term=run"
+curl -o search_results.md "http://localhost:3000/api/export/search?term=run"
 ```
 
 ## Testing
