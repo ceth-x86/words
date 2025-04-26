@@ -8,6 +8,11 @@ new Vue({
         searchTerm: '',
         searched: false,
         stats: null,
+        
+        // Tab navigation
+        activeTab: 'words',
+        
+        // Words tab data
         showAddWordForm: false,
         showAddMeaningForm: {},
         newWord: {
@@ -24,6 +29,34 @@ new Vue({
             examples: ''
         },
         newExamples: {},
+        
+        // Collections tab data
+        collections: [],
+        showAddCollectionForm: false,
+        newCollection: {
+            name: '',
+            description: ''
+        },
+        activeCollection: null,
+        collectionWords: [],
+        wordToAdd: '',
+        
+        // Edit collection modal
+        showEditCollection: false,
+        editCollection: {
+            id: null,
+            name: '',
+            description: ''
+        },
+        
+        // Word collections modal
+        showWordCollectionsModal: false,
+        currentWord: '',
+        wordCollections: [],
+        availableCollections: [],
+        selectedCollection: '',
+        
+        // Notifications
         notification: {
             show: false,
             message: '',
@@ -32,7 +65,7 @@ new Vue({
         }
     },
     methods: {
-        // API Calls
+        // API Calls for Words
         getAllWords() {
             this.searchTerm = '';
             this.searched = false;
@@ -171,6 +204,204 @@ new Vue({
                 });
         },
         
+        // API Calls for Collections
+        getAllCollections() {
+            axios.get(`${API_BASE_URL}/collections`)
+                .then(response => {
+                    this.collections = response.data.collections;
+                })
+                .catch(error => {
+                    this.showNotification(`Error loading collections: ${this.getErrorMessage(error)}`, 'error');
+                });
+        },
+        
+        addCollection() {
+            if (!this.newCollection.name) {
+                this.showNotification('Collection name is required', 'warning');
+                return;
+            }
+            
+            axios.post(`${API_BASE_URL}/collections`, this.newCollection)
+                .then(response => {
+                    this.showNotification(`Collection "${this.newCollection.name}" created successfully`, 'success');
+                    // Clear form
+                    this.resetNewCollection();
+                    this.showAddCollectionForm = false;
+                    // Refresh collections
+                    this.getAllCollections();
+                })
+                .catch(error => {
+                    this.showNotification(`Error creating collection: ${this.getErrorMessage(error)}`, 'error');
+                });
+        },
+        
+        showCollectionDetails(collectionId) {
+            axios.get(`${API_BASE_URL}/collections/${collectionId}`)
+                .then(response => {
+                    this.activeCollection = response.data.collection;
+                    this.collectionWords = response.data.words;
+                })
+                .catch(error => {
+                    this.showNotification(`Error loading collection: ${this.getErrorMessage(error)}`, 'error');
+                });
+        },
+        
+        closeCollectionDetails() {
+            this.activeCollection = null;
+            this.collectionWords = [];
+            this.wordToAdd = '';
+        },
+        
+        addWordToCollection() {
+            if (!this.wordToAdd.trim()) {
+                this.showNotification('Word to add is required', 'warning');
+                return;
+            }
+            
+            axios.post(`${API_BASE_URL}/collections/${this.activeCollection.id}/words/${encodeURIComponent(this.wordToAdd)}`)
+                .then(response => {
+                    this.showNotification(`Word "${this.wordToAdd}" added to collection`, 'success');
+                    this.wordToAdd = '';
+                    // Refresh collection details
+                    this.showCollectionDetails(this.activeCollection.id);
+                })
+                .catch(error => {
+                    this.showNotification(`Error adding word to collection: ${this.getErrorMessage(error)}`, 'error');
+                });
+        },
+        
+        removeWordFromCollection(wordStr) {
+            if (!confirm(`Are you sure you want to remove "${wordStr}" from this collection?`)) {
+                return;
+            }
+            
+            axios.delete(`${API_BASE_URL}/collections/${this.activeCollection.id}/words/${encodeURIComponent(wordStr)}`)
+                .then(response => {
+                    this.showNotification(`Word "${wordStr}" removed from collection`, 'success');
+                    // Refresh collection details
+                    this.showCollectionDetails(this.activeCollection.id);
+                })
+                .catch(error => {
+                    this.showNotification(`Error removing word from collection: ${this.getErrorMessage(error)}`, 'error');
+                });
+        },
+        
+        showEditCollectionForm(collection) {
+            this.editCollection = {
+                id: collection.id,
+                name: collection.name,
+                description: collection.description || ''
+            };
+            this.showEditCollection = true;
+        },
+        
+        closeEditCollection() {
+            this.showEditCollection = false;
+            this.editCollection = {
+                id: null,
+                name: '',
+                description: ''
+            };
+        },
+        
+        updateCollection() {
+            if (!this.editCollection.name) {
+                this.showNotification('Collection name is required', 'warning');
+                return;
+            }
+            
+            axios.put(`${API_BASE_URL}/collections/${this.editCollection.id}`, {
+                name: this.editCollection.name,
+                description: this.editCollection.description
+            })
+                .then(response => {
+                    this.showNotification('Collection updated successfully', 'success');
+                    this.closeEditCollection();
+                    // Refresh collections
+                    this.getAllCollections();
+                })
+                .catch(error => {
+                    this.showNotification(`Error updating collection: ${this.getErrorMessage(error)}`, 'error');
+                });
+        },
+        
+        deleteCollection(collectionId) {
+            if (!confirm('Are you sure you want to delete this collection?')) {
+                return;
+            }
+            
+            axios.delete(`${API_BASE_URL}/collections/${collectionId}`)
+                .then(response => {
+                    this.showNotification('Collection deleted successfully', 'success');
+                    // Refresh collections
+                    this.getAllCollections();
+                })
+                .catch(error => {
+                    this.showNotification(`Error deleting collection: ${this.getErrorMessage(error)}`, 'error');
+                });
+        },
+        
+        // Word-Collections integration
+        showWordCollections(wordStr) {
+            this.currentWord = wordStr;
+            this.showWordCollectionsModal = true;
+            
+            // Get collections for this word
+            axios.get(`${API_BASE_URL}/words/${encodeURIComponent(wordStr)}/collections`)
+                .then(response => {
+                    this.wordCollections = response.data.collections;
+                    // Now get all collections to determine which ones are available
+                    return axios.get(`${API_BASE_URL}/collections`);
+                })
+                .then(response => {
+                    const allCollections = response.data.collections;
+                    const wordCollectionIds = this.wordCollections.map(c => c.id);
+                    this.availableCollections = allCollections.filter(
+                        c => !wordCollectionIds.includes(c.id)
+                    );
+                })
+                .catch(error => {
+                    this.showNotification(`Error loading collections: ${this.getErrorMessage(error)}`, 'error');
+                });
+        },
+        
+        closeWordCollections() {
+            this.showWordCollectionsModal = false;
+            this.currentWord = '';
+            this.wordCollections = [];
+            this.availableCollections = [];
+            this.selectedCollection = '';
+        },
+        
+        addToSelectedCollection() {
+            if (!this.selectedCollection) {
+                this.showNotification('Please select a collection', 'warning');
+                return;
+            }
+            
+            axios.post(`${API_BASE_URL}/collections/${this.selectedCollection}/words/${encodeURIComponent(this.currentWord)}`)
+                .then(response => {
+                    this.showNotification(`Word added to collection successfully`, 'success');
+                    // Refresh collections for this word
+                    this.showWordCollections(this.currentWord);
+                })
+                .catch(error => {
+                    this.showNotification(`Error adding to collection: ${this.getErrorMessage(error)}`, 'error');
+                });
+        },
+        
+        removeFromCollection(collectionId) {
+            axios.delete(`${API_BASE_URL}/collections/${collectionId}/words/${encodeURIComponent(this.currentWord)}`)
+                .then(response => {
+                    this.showNotification(`Word removed from collection successfully`, 'success');
+                    // Refresh collections for this word
+                    this.showWordCollections(this.currentWord);
+                })
+                .catch(error => {
+                    this.showNotification(`Error removing from collection: ${this.getErrorMessage(error)}`, 'error');
+                });
+        },
+        
         // UI Helpers
         resetNewWord() {
             this.newWord = {
@@ -188,6 +419,13 @@ new Vue({
                 description: '',
                 translation: '',
                 examples: ''
+            };
+        },
+        
+        resetNewCollection() {
+            this.newCollection = {
+                name: '',
+                description: ''
             };
         },
         
@@ -218,5 +456,18 @@ new Vue({
     mounted() {
         // Load words when the component is mounted
         this.getAllWords();
+        
+        // Load collections
+        this.getAllCollections();
+    },
+    watch: {
+        // When tab changes, load appropriate data
+        activeTab(newTab) {
+            if (newTab === 'words') {
+                this.getAllWords();
+            } else if (newTab === 'collections') {
+                this.getAllCollections();
+            }
+        }
     }
 }); 
