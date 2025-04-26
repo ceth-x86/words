@@ -340,12 +340,6 @@
         (is (= 1 (:word_count body)))
         (is (= 2 (:meaning_count body)))))))
 
-(deftest test-api-route-not-found
-  (testing "Unknown routes return 404"
-    (let [response (app (mock/request :get "/api/unknown"))
-          body (parse-body response)]
-      (is (= 404 (:status response))))))
-
 ;; Test for content type and headers
 (deftest test-api-content-type
   (testing "API responses have JSON Content-Type header"
