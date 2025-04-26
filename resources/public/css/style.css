@@ -23,11 +23,11 @@ body {
     line-height: 1.6;
     color: var(--font-color);
     background-color: var(--light-gray);
-    padding: 20px;
+    padding: 10px;
 }
 
 #app {
-    max-width: 1200px;
+    width: 100%;
     margin: 0 auto;
 }
 
@@ -153,20 +153,18 @@ textarea {
 }
 
 .words-container {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 20px;
+    width: 100%;
 }
 
 @media (min-width: 768px) {
     .words-container {
-        grid-template-columns: repeat(2, 1fr);
+        width: 100%;
     }
 }
 
 @media (min-width: 1024px) {
     .words-container {
-        grid-template-columns: repeat(3, 1fr);
+        width: 100%;
     }
 }
 
@@ -396,20 +394,18 @@ textarea {
 }
 
 .collections-container {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 20px;
+    width: 100%;
 }
 
 @media (min-width: 768px) {
     .collections-container {
-        grid-template-columns: repeat(2, 1fr);
+        width: 100%;
     }
 }
 
 @media (min-width: 1024px) {
     .collections-container {
-        grid-template-columns: repeat(3, 1fr);
+        width: 100%;
     }
 }
 
@@ -544,4 +540,161 @@ select {
     border-radius: var(--border-radius);
     margin-bottom: 10px;
     font-size: 14px;
+}
+
+/* Collections table styles */
+.collections-table-container {
+    margin-bottom: 15px;
+    overflow-x: auto;
+    width: 100%;
+}
+
+.collections-table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: white;
+    border-radius: var(--border-radius);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    font-size: 12px;
+}
+
+.collections-table th, 
+.collections-table td {
+    padding: 3px 5px;
+    text-align: left;
+    border-bottom: 1px solid var(--medium-gray);
+}
+
+.collections-table th {
+    background-color: var(--success-color);
+    color: white;
+    font-weight: bold;
+    font-size: 13px;
+    padding: 4px 6px;
+}
+
+.collections-table tr:last-child td {
+    border-bottom: none;
+}
+
+.collection-name-column {
+    width: 20%;
+}
+
+.collection-desc-column {
+    width: 50%;
+}
+
+.collection-count-column {
+    width: 10%;
+}
+
+.collection-name-cell {
+    font-weight: bold;
+    color: var(--success-color);
+    font-size: 12px;
+}
+
+.collection-desc-cell {
+    font-style: italic;
+    color: var(--dark-gray);
+    font-size: 11px;
+}
+
+.collection-count-cell {
+    text-align: center;
+    font-size: 11px;
+}
+
+@media (max-width: 768px) {
+    .collections-table th,
+    .collections-table td {
+        padding: 8px;
+    }
+    
+    .collection-name-column {
+        width: 30%;
+    }
+    
+    .collection-desc-column {
+        width: 40%;
+    }
+    
+    .collection-count-column {
+        width: 10%;
+    }
+    
+    .actions-column {
+        width: 20%;
+    }
+}
+
+.words-table tr:last-child td {
+    border-bottom: none;
+}
+
+.words-table tr.selected td {
+    background-color: rgba(52, 152, 219, 0.1);
+}
+
+.words-table tr {
+    cursor: pointer;
+}
+
+.words-table tr:hover td {
+    background-color: rgba(52, 152, 219, 0.05);
+}
+
+/* Column widths for words table */
+.word-column {
+    width: 12%;
+}
+
+.meanings-column {
+    width: 68%;
+}
+
+.actions-column {
+    width: 20%;
+}
+
+.word-cell {
+    font-weight: bold;
+    color: var(--primary-color);
+    white-space: nowrap;
+    font-size: 12px;
+}
+
+.meanings-cell {
+    vertical-align: top;
+}
+
+/* Better spacing for table cells */
+.words-table td, .collections-table td {
+    padding: 8px 10px;
+}
+
+/* Make sure buttons are properly sized */
+.actions-cell .small-button {
+    margin-bottom: 4px;
+    display: inline-block;
+}
+
+@media (max-width: 768px) {
+    .words-table th,
+    .words-table td {
+        padding: 8px;
+    }
+    
+    .word-column {
+        width: 20%;
+    }
+    
+    .meanings-column {
+        width: 55%;
+    }
+    
+    .actions-column {
+        width: 25%;
+    }
 } 

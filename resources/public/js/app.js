@@ -15,6 +15,7 @@ new Vue({
         // Words tab data
         showAddWordForm: false,
         showAddMeaningForm: {},
+        selectedWordId: null,
         newWord: {
             word: '',
             transcription: '',
@@ -451,6 +452,14 @@ new Vue({
                 return error.response.data.error;
             }
             return error.message || 'Unknown error';
+        },
+        
+        toggleWordDetails(word) {
+            if (this.selectedWordId === word.id) {
+                this.selectedWordId = null;
+            } else {
+                this.selectedWordId = word.id;
+            }
         }
     },
     mounted() {
@@ -468,6 +477,11 @@ new Vue({
             } else if (newTab === 'collections') {
                 this.getAllCollections();
             }
+        }
+    },
+    computed: {
+        filteredWords() {
+            return this.words;
         }
     }
 }); 

@@ -83,71 +83,80 @@
                 </div>
 
                 <div class="words-container" v-if="words.length">
-                    <div class="word-card" v-for="word in words" :key="word.id">
-                        <div class="word-header">
-                            <h2>{{ word.word }}</h2>
-                            <div class="word-actions">
-                                <button @click="showAddMeaningForm[word.id] = !showAddMeaningForm[word.id]" class="small-button">
-                                    Add Meaning
-                                </button>
-                                <button @click="showWordCollections(word.word)" class="small-button">Collections</button>
-                                <button @click="deleteWord(word.word)" class="small-button delete">Delete</button>
-                            </div>
-                        </div>
-
-                        <div class="add-meaning-form" v-if="showAddMeaningForm[word.id]">
-                            <h3>Add New Meaning to "{{ word.word }}"</h3>
-                            <div class="form-group">
-                                <label for="meaning-transcription">Transcription:</label>
-                                <input type="text" id="meaning-transcription" v-model="newMeaning.transcription">
-                            </div>
-                            <div class="form-group">
-                                <label for="meaning-description">Description:</label>
-                                <input type="text" id="meaning-description" v-model="newMeaning.description">
-                            </div>
-                            <div class="form-group">
-                                <label for="meaning-translation">Translation*:</label>
-                                <input type="text" id="meaning-translation" v-model="newMeaning.translation" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="meaning-examples">Examples (one per line):</label>
-                                <textarea id="meaning-examples" v-model="newMeaning.examples"></textarea>
-                            </div>
-                            <button @click="addMeaning(word.word)" class="submit-button">Add Meaning</button>
-                        </div>
-
-                        <div class="meanings">
-                            <div class="meaning" v-for="meaning in word.meanings" :key="meaning.id">
-                                <div class="meaning-header">
-                                    <div class="meaning-info">
-                                        <span class="transcription" v-if="meaning.transcription">[{{ meaning.transcription }}]</span>
-                                        <span class="description">{{ meaning.description }}</span>
-                                        <span class="translation">{{ meaning.translation }}</span>
-                                    </div>
-                                    <div class="meaning-actions">
-                                        <button @click="deleteMeaning(meaning.id)" class="small-button delete">Delete</button>
-                                    </div>
-                                </div>
-                                <div class="examples" v-if="meaning.examples && meaning.examples.length">
-                                    <p>Examples:</p>
-                                    <ul>
-                                        <li v-for="(example, idx) in meaning.examples" :key="idx">
-                                            {{ example.text }}
-                                            <button @click="deleteExample(example.id)" class="tiny-button delete">✕</button>
-                                        </li>
-                                    </ul>
-                                </div>
-                                <div class="add-example">
-                                    <input 
-                                        type="text" 
-                                        v-model="newExamples[meaning.id]" 
-                                        placeholder="Add new example"
-                                        @keyup.enter="addExample(meaning.id)"
-                                    >
-                                    <button @click="addExample(meaning.id)" class="small-button">Add</button>
-                                </div>
-                            </div>
-                        </div>
+                    <div class="words-table-container">
+                        <table class="words-table">
+                            <thead>
+                                <tr>
+                                    <th class="word-column">Word</th>
+                                    <th class="meanings-column">Meanings</th>
+                                    <th class="actions-column">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="word in words" :key="word.id" @click="toggleWordDetails(word)" :class="{ 'selected': selectedWordId === word.id }">
+                                    <td class="word-cell">
+                                        {{ word.word }}
+                                        <div v-if="word.meanings && word.meanings.length && word.meanings[0].transcription" class="word-transcription">
+                                            [{{ word.meanings[0].transcription }}]
+                                        </div>
+                                    </td>
+                                    <td class="meanings-cell">
+                                        <div v-for="meaning in word.meanings" :key="meaning.id" class="meaning-item">
+                                            <div class="meaning-header">
+                                                <span class="description">{{ meaning.description }}</span>
+                                                <span class="translation">{{ meaning.translation }}</span>
+                                                <button @click="deleteMeaning(meaning.id)" class="tiny-button delete">✕</button>
+                                            </div>
+                                            <div v-if="meaning.examples && meaning.examples.length" class="examples-list">
+                                                <div v-for="(example, idx) in meaning.examples" :key="idx" class="example-item">
+                                                    <span class="example-text">{{ example.text }}</span>
+                                                    <button @click="deleteExample(example.id)" class="tiny-button delete">✕</button>
+                                                </div>
+                                            </div>
+                                            <div class="add-example">
+                                                <input 
+                                                    type="text" 
+                                                    v-model="newExamples[meaning.id]" 
+                                                    placeholder="Add example"
+                                                    @keyup.enter="addExample(meaning.id)"
+                                                    class="example-input"
+                                                >
+                                                <button @click="addExample(meaning.id)" class="small-button">+</button>
+                                            </div>
+                                        </div>
+                                        
+                                        <div v-if="showAddMeaningForm[word.id]" class="add-meaning-form">
+                                            <h4>Add Meaning</h4>
+                                            <div class="form-row">
+                                                <div class="form-group">
+                                                    <input type="text" placeholder="Transcription" v-model="newMeaning.transcription">
+                                                </div>
+                                                <div class="form-group">
+                                                    <input type="text" placeholder="Description" v-model="newMeaning.description">
+                                                </div>
+                                                <div class="form-group">
+                                                    <input type="text" placeholder="Translation*" v-model="newMeaning.translation" required>
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <textarea placeholder="Examples (one per line)" v-model="newMeaning.examples"></textarea>
+                                            </div>
+                                            <div class="form-row">
+                                                <button @click="addMeaning(word.word)" class="small-button">Add</button>
+                                                <button @click="showAddMeaningForm[word.id] = false" class="small-button">Cancel</button>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="actions-cell">
+                                        <button @click="showAddMeaningForm[word.id] = !showAddMeaningForm[word.id]" class="small-button">
+                                            {{ showAddMeaningForm[word.id] ? 'Cancel' : '+Meaning' }}
+                                        </button>
+                                        <button @click="showWordCollections(word.word)" class="small-button">Collection</button>
+                                        <button @click="deleteWord(word.word)" class="small-button delete">Delete</button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
                 <div class="no-results" v-else>
@@ -178,19 +187,29 @@
                 </div>
 
                 <div class="collections-container" v-if="collections.length">
-                    <div class="collection-card" v-for="collection in collections" :key="collection.id">
-                        <div class="collection-header">
-                            <h2>{{ collection.name }}</h2>
-                            <span class="word-count">{{ collection.word_count || 0 }} words</span>
-                            <div class="collection-actions">
-                                <button @click="showCollectionDetails(collection.id)" class="small-button">View</button>
-                                <button @click="showEditCollectionForm(collection)" class="small-button">Edit</button>
-                                <button @click="deleteCollection(collection.id)" class="small-button delete">Delete</button>
-                            </div>
-                        </div>
-                        <div class="collection-description" v-if="collection.description">
-                            {{ collection.description }}
-                        </div>
+                    <div class="collections-table-container">
+                        <table class="collections-table">
+                            <thead>
+                                <tr>
+                                    <th class="collection-name-column">Name</th>
+                                    <th class="collection-desc-column">Description</th>
+                                    <th class="collection-count-column">Words</th>
+                                    <th class="actions-column">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="collection in collections" :key="collection.id">
+                                    <td class="collection-name-cell">{{ collection.name }}</td>
+                                    <td class="collection-desc-cell">{{ collection.description || 'No description' }}</td>
+                                    <td class="collection-count-cell">{{ collection.word_count || 0 }}</td>
+                                    <td class="actions-cell">
+                                        <button @click="showCollectionDetails(collection.id)" class="small-button">View</button>
+                                        <button @click="showEditCollectionForm(collection)" class="small-button">Edit</button>
+                                        <button @click="deleteCollection(collection.id)" class="small-button delete">Delete</button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
                 <div class="no-results" v-else>
