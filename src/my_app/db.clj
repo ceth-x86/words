@@ -180,7 +180,7 @@
 ;; Function to get all words with their meanings and examples
 (defn get-all-words []
   (let [ds (jdbc/get-datasource db-spec)
-        words (jdbc/execute! ds ["SELECT id, word FROM words ORDER BY word"]
+        words (jdbc/execute! ds ["SELECT id, word FROM words ORDER BY created_at DESC"]
                            {:builder-fn rs/as-unqualified-maps})]
     (mapv #(assoc % :meanings (get-word-meanings (:id %))) words)))
 
