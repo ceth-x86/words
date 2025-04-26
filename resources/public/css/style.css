@@ -95,6 +95,19 @@ button:hover {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
+.filtered-note {
+    background-color: var(--light-gray);
+    padding: 5px 10px;
+    border-radius: var(--border-radius);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.filtered-note strong {
+    color: var(--success-color);
+}
+
 .add-word-container {
     margin-bottom: 20px;
 }

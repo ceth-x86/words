@@ -1,487 +1,610 @@
 const API_BASE_URL = '/api';
 
-new Vue({
-    el: '#app',
-    data: {
-        title: 'English Words Dictionary',
-        words: [],
-        searchTerm: '',
-        searched: false,
-        stats: null,
+const app = Vue.createApp({
+    setup() {
+        const { ref, reactive, computed, watch, onMounted } = Vue;
         
-        // Tab navigation
-        activeTab: 'words',
+        // Основные состояния
+        const title = ref('English Words Dictionary');
+        const words = ref([]);
+        const searchTerm = ref('');
+        const searched = ref(false);
+        const stats = ref(null);
         
-        // Words tab data
-        showAddWordForm: false,
-        showAddMeaningForm: {},
-        selectedWordId: null,
-        newWord: {
+        // Навигация по вкладкам
+        const activeTab = ref('words');
+        
+        // Данные вкладки слов
+        const showAddWordForm = ref(false);
+        const showAddMeaningForm = reactive({});
+        const selectedWordId = ref(null);
+        const newWord = reactive({
             word: '',
             transcription: '',
             description: '',
             translation: '',
             examples: ''
-        },
-        newMeaning: {
+        });
+        const newMeaning = reactive({
             transcription: '',
             description: '',
             translation: '',
             examples: ''
-        },
-        newExamples: {},
+        });
+        const newExamples = reactive({});
         
-        // Collections tab data
-        collections: [],
-        showAddCollectionForm: false,
-        newCollection: {
+        // Данные вкладки коллекций
+        const collections = ref([]);
+        const showAddCollectionForm = ref(false);
+        const newCollection = reactive({
             name: '',
             description: ''
-        },
-        activeCollection: null,
-        collectionWords: [],
-        wordToAdd: '',
+        });
+        const activeCollection = ref(null);
+        const collectionWords = ref([]);
+        const wordToAdd = ref('');
         
-        // Edit collection modal
-        showEditCollection: false,
-        editCollection: {
+        // Фильтр для слов по коллекции
+        const filteredByCollection = ref(null);
+        
+        // Модальное окно редактирования коллекции
+        const showEditCollection = ref(false);
+        const editCollection = reactive({
             id: null,
             name: '',
             description: ''
-        },
+        });
         
-        // Word collections modal
-        showWordCollectionsModal: false,
-        currentWord: '',
-        wordCollections: [],
-        availableCollections: [],
-        selectedCollection: '',
+        // Модальное окно коллекций слова
+        const showWordCollectionsModal = ref(false);
+        const currentWord = ref('');
+        const wordCollections = ref([]);
+        const availableCollections = ref([]);
+        const selectedCollection = ref('');
         
-        // Notifications
-        notification: {
+        // Уведомления
+        const notification = reactive({
             show: false,
             message: '',
             type: 'success', // success, error, warning
             timeout: null
-        }
-    },
-    methods: {
-        // API Calls for Words
-        getAllWords() {
-            this.searchTerm = '';
-            this.searched = false;
+        });
+        
+        // Вычисляемые свойства
+        const filteredWords = computed(() => {
+            return words.value;
+        });
+        
+        // API запросы для слов
+        function getAllWords() {
+            searchTerm.value = '';
+            searched.value = false;
+            filteredByCollection.value = null; // Очистка фильтра коллекции
+            
             axios.get(`${API_BASE_URL}/words`)
                 .then(response => {
-                    this.words = response.data.words;
-                    this.stats = {
+                    words.value = response.data.words;
+                    stats.value = {
                         count: response.data.count,
                         total_meanings: response.data.total_meanings,
                         total_examples: response.data.total_examples
                     };
                 })
                 .catch(error => {
-                    this.showNotification(`Error loading words: ${this.getErrorMessage(error)}`, 'error');
+                    showNotification(`Error loading words: ${getErrorMessage(error)}`, 'error');
                 });
-        },
+        }
         
-        searchWords() {
-            if (!this.searchTerm.trim()) {
-                this.getAllWords();
+        function searchWords() {
+            if (!searchTerm.value.trim()) {
+                getAllWords();
                 return;
             }
             
-            this.searched = true;
-            axios.get(`${API_BASE_URL}/search?term=${encodeURIComponent(this.searchTerm)}`)
+            searched.value = true;
+            filteredByCollection.value = null; // Очистка фильтра коллекции
+            
+            axios.get(`${API_BASE_URL}/search?term=${encodeURIComponent(searchTerm.value)}`)
                 .then(response => {
-                    this.words = response.data.words;
-                    this.stats = { count: response.data.count };
+                    words.value = response.data.words;
+                    stats.value = { count: response.data.count };
                 })
                 .catch(error => {
-                    this.showNotification(`Search error: ${this.getErrorMessage(error)}`, 'error');
+                    showNotification(`Search error: ${getErrorMessage(error)}`, 'error');
                 });
-        },
+        }
         
-        addWord() {
-            if (!this.newWord.word || !this.newWord.translation) {
-                this.showNotification('Word and translation are required', 'warning');
+        function addWord() {
+            if (!newWord.word || !newWord.translation) {
+                showNotification('Word and translation are required', 'warning');
                 return;
             }
             
-            axios.post(`${API_BASE_URL}/words`, this.newWord)
+            axios.post(`${API_BASE_URL}/words`, newWord)
                 .then(response => {
-                    this.showNotification(`Word "${this.newWord.word}" added successfully`, 'success');
-                    // Clear form
-                    this.resetNewWord();
-                    this.showAddWordForm = false;
-                    // Refresh word list
-                    this.getAllWords();
+                    showNotification(`Word "${newWord.word}" added successfully`, 'success');
+                    // Очистка формы
+                    resetNewWord();
+                    showAddWordForm.value = false;
+                    // Обновление списка слов
+                    getAllWords();
                 })
                 .catch(error => {
-                    this.showNotification(`Error adding word: ${this.getErrorMessage(error)}`, 'error');
+                    showNotification(`Error adding word: ${getErrorMessage(error)}`, 'error');
                 });
-        },
+        }
         
-        addMeaning(wordStr) {
-            if (!this.newMeaning.translation) {
-                this.showNotification('Translation is required', 'warning');
+        function addMeaning(wordStr) {
+            if (!newMeaning.translation) {
+                showNotification('Translation is required', 'warning');
                 return;
             }
             
-            axios.post(`${API_BASE_URL}/words/${encodeURIComponent(wordStr)}/meanings`, this.newMeaning)
+            axios.post(`${API_BASE_URL}/words/${encodeURIComponent(wordStr)}/meanings`, newMeaning)
                 .then(response => {
-                    this.showNotification(`New meaning added to "${wordStr}"`, 'success');
-                    // Clear form
-                    this.resetNewMeaning();
-                    Vue.set(this.showAddMeaningForm, response.data.word.id, false);
-                    // Refresh word list
-                    this.getAllWords();
+                    showNotification(`New meaning added to "${wordStr}"`, 'success');
+                    // Очистка формы
+                    resetNewMeaning();
+                    showAddMeaningForm[response.data.word.id] = false;
+                    // Обновление списка слов
+                    getAllWords();
                 })
                 .catch(error => {
-                    this.showNotification(`Error adding meaning: ${this.getErrorMessage(error)}`, 'error');
+                    showNotification(`Error adding meaning: ${getErrorMessage(error)}`, 'error');
                 });
-        },
+        }
         
-        addExample(meaningId) {
-            const exampleText = this.newExamples[meaningId];
+        function addExample(meaningId) {
+            const exampleText = newExamples[meaningId];
             if (!exampleText || !exampleText.trim()) {
-                this.showNotification('Example text cannot be empty', 'warning');
+                showNotification('Example text cannot be empty', 'warning');
                 return;
             }
             
             axios.post(`${API_BASE_URL}/meanings/${meaningId}/examples`, { text: exampleText })
                 .then(response => {
-                    this.showNotification('Example added successfully', 'success');
-                    // Clear the input
-                    Vue.set(this.newExamples, meaningId, '');
-                    // Refresh word list
-                    this.getAllWords();
+                    showNotification('Example added successfully', 'success');
+                    // Очистка поля ввода
+                    newExamples[meaningId] = '';
+                    // Обновление списка слов
+                    getAllWords();
                 })
                 .catch(error => {
-                    this.showNotification(`Error adding example: ${this.getErrorMessage(error)}`, 'error');
+                    showNotification(`Error adding example: ${getErrorMessage(error)}`, 'error');
                 });
-        },
+        }
         
-        deleteWord(wordStr) {
+        function deleteWord(wordStr) {
             if (!confirm(`Are you sure you want to delete "${wordStr}" and all its meanings?`)) {
                 return;
             }
             
             axios.delete(`${API_BASE_URL}/words/${encodeURIComponent(wordStr)}`)
                 .then(response => {
-                    this.showNotification(`Word "${wordStr}" deleted successfully`, 'success');
-                    // Refresh word list
-                    this.getAllWords();
+                    showNotification(`Word "${wordStr}" deleted successfully`, 'success');
+                    // Обновление списка слов
+                    getAllWords();
                 })
                 .catch(error => {
-                    this.showNotification(`Error deleting word: ${this.getErrorMessage(error)}`, 'error');
+                    showNotification(`Error deleting word: ${getErrorMessage(error)}`, 'error');
                 });
-        },
+        }
         
-        deleteMeaning(meaningId) {
+        function deleteMeaning(meaningId) {
             if (!confirm('Are you sure you want to delete this meaning?')) {
                 return;
             }
             
             axios.delete(`${API_BASE_URL}/meanings/${meaningId}`)
                 .then(response => {
-                    this.showNotification('Meaning deleted successfully', 'success');
-                    // Refresh word list
-                    this.getAllWords();
+                    showNotification('Meaning deleted successfully', 'success');
+                    // Обновление списка слов
+                    getAllWords();
                 })
                 .catch(error => {
-                    this.showNotification(`Error deleting meaning: ${this.getErrorMessage(error)}`, 'error');
+                    showNotification(`Error deleting meaning: ${getErrorMessage(error)}`, 'error');
                 });
-        },
+        }
         
-        deleteExample(exampleId) {
+        function deleteExample(exampleId) {
             axios.delete(`${API_BASE_URL}/examples/${exampleId}`)
                 .then(response => {
-                    this.showNotification('Example deleted successfully', 'success');
-                    // Refresh word list
-                    this.getAllWords();
+                    showNotification('Example deleted successfully', 'success');
+                    // Обновление списка слов
+                    getAllWords();
                 })
                 .catch(error => {
-                    this.showNotification(`Error deleting example: ${this.getErrorMessage(error)}`, 'error');
+                    showNotification(`Error deleting example: ${getErrorMessage(error)}`, 'error');
                 });
-        },
+        }
         
-        // API Calls for Collections
-        getAllCollections() {
+        // API запросы для коллекций
+        function getAllCollections() {
             axios.get(`${API_BASE_URL}/collections`)
                 .then(response => {
-                    this.collections = response.data.collections;
+                    collections.value = response.data.collections;
                 })
                 .catch(error => {
-                    this.showNotification(`Error loading collections: ${this.getErrorMessage(error)}`, 'error');
+                    showNotification(`Error loading collections: ${getErrorMessage(error)}`, 'error');
                 });
-        },
+        }
         
-        addCollection() {
-            if (!this.newCollection.name) {
-                this.showNotification('Collection name is required', 'warning');
+        function addCollection() {
+            if (!newCollection.name) {
+                showNotification('Collection name is required', 'warning');
                 return;
             }
             
-            axios.post(`${API_BASE_URL}/collections`, this.newCollection)
+            axios.post(`${API_BASE_URL}/collections`, newCollection)
                 .then(response => {
-                    this.showNotification(`Collection "${this.newCollection.name}" created successfully`, 'success');
-                    // Clear form
-                    this.resetNewCollection();
-                    this.showAddCollectionForm = false;
-                    // Refresh collections
-                    this.getAllCollections();
+                    showNotification(`Collection "${newCollection.name}" created successfully`, 'success');
+                    // Очистка формы
+                    resetNewCollection();
+                    showAddCollectionForm.value = false;
+                    // Обновление коллекций
+                    getAllCollections();
                 })
                 .catch(error => {
-                    this.showNotification(`Error creating collection: ${this.getErrorMessage(error)}`, 'error');
+                    showNotification(`Error creating collection: ${getErrorMessage(error)}`, 'error');
                 });
-        },
+        }
         
-        showCollectionDetails(collectionId) {
+        function showCollectionDetails(collectionId) {
             axios.get(`${API_BASE_URL}/collections/${collectionId}`)
                 .then(response => {
-                    this.activeCollection = response.data.collection;
-                    this.collectionWords = response.data.words;
+                    activeCollection.value = response.data.collection;
+                    collectionWords.value = response.data.words;
                 })
                 .catch(error => {
-                    this.showNotification(`Error loading collection: ${this.getErrorMessage(error)}`, 'error');
+                    showNotification(`Error loading collection: ${getErrorMessage(error)}`, 'error');
                 });
-        },
+        }
         
-        closeCollectionDetails() {
-            this.activeCollection = null;
-            this.collectionWords = [];
-            this.wordToAdd = '';
-        },
+        function closeCollectionDetails() {
+            activeCollection.value = null;
+            collectionWords.value = [];
+            wordToAdd.value = '';
+        }
         
-        addWordToCollection() {
-            if (!this.wordToAdd.trim()) {
-                this.showNotification('Word to add is required', 'warning');
+        function addWordToCollection() {
+            if (!wordToAdd.value.trim()) {
+                showNotification('Word to add is required', 'warning');
                 return;
             }
             
-            axios.post(`${API_BASE_URL}/collections/${this.activeCollection.id}/words/${encodeURIComponent(this.wordToAdd)}`)
+            axios.post(`${API_BASE_URL}/collections/${activeCollection.value.id}/words/${encodeURIComponent(wordToAdd.value)}`)
                 .then(response => {
-                    this.showNotification(`Word "${this.wordToAdd}" added to collection`, 'success');
-                    this.wordToAdd = '';
-                    // Refresh collection details
-                    this.showCollectionDetails(this.activeCollection.id);
+                    showNotification(`Word "${wordToAdd.value}" added to collection`, 'success');
+                    wordToAdd.value = '';
+                    // Обновление деталей коллекции
+                    showCollectionDetails(activeCollection.value.id);
                 })
                 .catch(error => {
-                    this.showNotification(`Error adding word to collection: ${this.getErrorMessage(error)}`, 'error');
+                    showNotification(`Error adding word to collection: ${getErrorMessage(error)}`, 'error');
                 });
-        },
+        }
         
-        removeWordFromCollection(wordStr) {
+        function removeWordFromCollection(wordStr) {
             if (!confirm(`Are you sure you want to remove "${wordStr}" from this collection?`)) {
                 return;
             }
             
-            axios.delete(`${API_BASE_URL}/collections/${this.activeCollection.id}/words/${encodeURIComponent(wordStr)}`)
+            axios.delete(`${API_BASE_URL}/collections/${activeCollection.value.id}/words/${encodeURIComponent(wordStr)}`)
                 .then(response => {
-                    this.showNotification(`Word "${wordStr}" removed from collection`, 'success');
-                    // Refresh collection details
-                    this.showCollectionDetails(this.activeCollection.id);
+                    showNotification(`Word "${wordStr}" removed from collection`, 'success');
+                    // Обновление деталей коллекции
+                    showCollectionDetails(activeCollection.value.id);
                 })
                 .catch(error => {
-                    this.showNotification(`Error removing word from collection: ${this.getErrorMessage(error)}`, 'error');
+                    showNotification(`Error removing word from collection: ${getErrorMessage(error)}`, 'error');
                 });
-        },
+        }
         
-        showEditCollectionForm(collection) {
-            this.editCollection = {
-                id: collection.id,
-                name: collection.name,
-                description: collection.description || ''
-            };
-            this.showEditCollection = true;
-        },
+        function showEditCollectionForm(collection) {
+            editCollection.id = collection.id;
+            editCollection.name = collection.name;
+            editCollection.description = collection.description || '';
+            showEditCollection.value = true;
+        }
         
-        closeEditCollection() {
-            this.showEditCollection = false;
-            this.editCollection = {
-                id: null,
-                name: '',
-                description: ''
-            };
-        },
+        function closeEditCollection() {
+            showEditCollection.value = false;
+            editCollection.id = null;
+            editCollection.name = '';
+            editCollection.description = '';
+        }
         
-        updateCollection() {
-            if (!this.editCollection.name) {
-                this.showNotification('Collection name is required', 'warning');
+        function updateCollection() {
+            if (!editCollection.name) {
+                showNotification('Collection name is required', 'warning');
                 return;
             }
             
-            axios.put(`${API_BASE_URL}/collections/${this.editCollection.id}`, {
-                name: this.editCollection.name,
-                description: this.editCollection.description
+            axios.put(`${API_BASE_URL}/collections/${editCollection.id}`, {
+                name: editCollection.name,
+                description: editCollection.description
             })
                 .then(response => {
-                    this.showNotification('Collection updated successfully', 'success');
-                    this.closeEditCollection();
-                    // Refresh collections
-                    this.getAllCollections();
+                    showNotification('Collection updated successfully', 'success');
+                    closeEditCollection();
+                    // Обновление коллекций
+                    getAllCollections();
                 })
                 .catch(error => {
-                    this.showNotification(`Error updating collection: ${this.getErrorMessage(error)}`, 'error');
+                    showNotification(`Error updating collection: ${getErrorMessage(error)}`, 'error');
                 });
-        },
+        }
         
-        deleteCollection(collectionId) {
+        function deleteCollection(collectionId) {
             if (!confirm('Are you sure you want to delete this collection?')) {
                 return;
             }
             
             axios.delete(`${API_BASE_URL}/collections/${collectionId}`)
                 .then(response => {
-                    this.showNotification('Collection deleted successfully', 'success');
-                    // Refresh collections
-                    this.getAllCollections();
+                    showNotification('Collection deleted successfully', 'success');
+                    // Обновление коллекций
+                    getAllCollections();
                 })
                 .catch(error => {
-                    this.showNotification(`Error deleting collection: ${this.getErrorMessage(error)}`, 'error');
+                    showNotification(`Error deleting collection: ${getErrorMessage(error)}`, 'error');
                 });
-        },
+        }
         
-        // Word-Collections integration
-        showWordCollections(wordStr) {
-            this.currentWord = wordStr;
-            this.showWordCollectionsModal = true;
+        // Интеграция слов и коллекций
+        function showWordCollections(wordStr) {
+            currentWord.value = wordStr;
+            showWordCollectionsModal.value = true;
             
-            // Get collections for this word
+            // Получение коллекций для этого слова
             axios.get(`${API_BASE_URL}/words/${encodeURIComponent(wordStr)}/collections`)
                 .then(response => {
-                    this.wordCollections = response.data.collections;
-                    // Now get all collections to determine which ones are available
+                    wordCollections.value = response.data.collections;
+                    // Получение всех коллекций для определения доступных
                     return axios.get(`${API_BASE_URL}/collections`);
                 })
                 .then(response => {
                     const allCollections = response.data.collections;
-                    const wordCollectionIds = this.wordCollections.map(c => c.id);
-                    this.availableCollections = allCollections.filter(
+                    const wordCollectionIds = wordCollections.value.map(c => c.id);
+                    availableCollections.value = allCollections.filter(
                         c => !wordCollectionIds.includes(c.id)
                     );
                 })
                 .catch(error => {
-                    this.showNotification(`Error loading collections: ${this.getErrorMessage(error)}`, 'error');
+                    showNotification(`Error loading collections: ${getErrorMessage(error)}`, 'error');
                 });
-        },
+        }
         
-        closeWordCollections() {
-            this.showWordCollectionsModal = false;
-            this.currentWord = '';
-            this.wordCollections = [];
-            this.availableCollections = [];
-            this.selectedCollection = '';
-        },
+        function closeWordCollections() {
+            showWordCollectionsModal.value = false;
+            currentWord.value = '';
+            wordCollections.value = [];
+            availableCollections.value = [];
+            selectedCollection.value = '';
+        }
         
-        addToSelectedCollection() {
-            if (!this.selectedCollection) {
-                this.showNotification('Please select a collection', 'warning');
+        function addToSelectedCollection() {
+            if (!selectedCollection.value) {
+                showNotification('Please select a collection', 'warning');
                 return;
             }
             
-            axios.post(`${API_BASE_URL}/collections/${this.selectedCollection}/words/${encodeURIComponent(this.currentWord)}`)
+            axios.post(`${API_BASE_URL}/collections/${selectedCollection.value}/words/${encodeURIComponent(currentWord.value)}`)
                 .then(response => {
-                    this.showNotification(`Word added to collection successfully`, 'success');
-                    // Refresh collections for this word
-                    this.showWordCollections(this.currentWord);
+                    showNotification(`Word added to collection successfully`, 'success');
+                    // Обновление коллекций для этого слова
+                    showWordCollections(currentWord.value);
                 })
                 .catch(error => {
-                    this.showNotification(`Error adding to collection: ${this.getErrorMessage(error)}`, 'error');
+                    showNotification(`Error adding to collection: ${getErrorMessage(error)}`, 'error');
                 });
-        },
+        }
         
-        removeFromCollection(collectionId) {
-            axios.delete(`${API_BASE_URL}/collections/${collectionId}/words/${encodeURIComponent(this.currentWord)}`)
+        function removeFromCollection(collectionId) {
+            axios.delete(`${API_BASE_URL}/collections/${collectionId}/words/${encodeURIComponent(currentWord.value)}`)
                 .then(response => {
-                    this.showNotification(`Word removed from collection successfully`, 'success');
-                    // Refresh collections for this word
-                    this.showWordCollections(this.currentWord);
+                    showNotification(`Word removed from collection successfully`, 'success');
+                    // Обновление коллекций для этого слова
+                    showWordCollections(currentWord.value);
                 })
                 .catch(error => {
-                    this.showNotification(`Error removing from collection: ${this.getErrorMessage(error)}`, 'error');
+                    showNotification(`Error removing from collection: ${getErrorMessage(error)}`, 'error');
                 });
-        },
+        }
         
-        // UI Helpers
-        resetNewWord() {
-            this.newWord = {
+        function viewCollectionWords(collection) {
+            // Получение слов из коллекции
+            axios.get(`${API_BASE_URL}/collections/${collection.id}`)
+                .then(response => {
+                    // Переключение на вкладку слов
+                    activeTab.value = 'words';
+                    
+                    // Сохранение деталей коллекции для фильтрации
+                    filteredByCollection.value = {
+                        id: collection.id,
+                        name: collection.name
+                    };
+                    
+                    // Получение полной информации о каждом слове в коллекции
+                    const wordsFromCollection = response.data.words;
+                    if (wordsFromCollection && wordsFromCollection.length > 0) {
+                        // Получение полной информации для каждого слова
+                        const wordPromises = wordsFromCollection.map(word => 
+                            axios.get(`${API_BASE_URL}/words/${encodeURIComponent(word.word)}`)
+                                .then(resp => resp.data.word)
+                        );
+                        
+                        Promise.all(wordPromises)
+                            .then(wordDetails => {
+                                words.value = wordDetails;
+                                
+                                // Обновление статистики
+                                stats.value = {
+                                    count: words.value.length,
+                                    filtered_by: collection.name
+                                };
+                                
+                                // Отметка для отображения соответствующего сообщения
+                                searchTerm.value = '';
+                                searched.value = true;
+                            })
+                            .catch(error => {
+                                showNotification(`Error loading word details: ${getErrorMessage(error)}`, 'error');
+                            });
+                    } else {
+                        // Нет слов в коллекции
+                        words.value = [];
+                        stats.value = {
+                            count: 0,
+                            filtered_by: collection.name
+                        };
+                        searchTerm.value = '';
+                        searched.value = true;
+                    }
+                })
+                .catch(error => {
+                    showNotification(`Error loading collection words: ${getErrorMessage(error)}`, 'error');
+                });
+        }
+        
+        // Вспомогательные функции для UI
+        function resetNewWord() {
+            Object.assign(newWord, {
                 word: '',
                 transcription: '',
                 description: '',
                 translation: '',
                 examples: ''
-            };
-        },
+            });
+        }
         
-        resetNewMeaning() {
-            this.newMeaning = {
+        function resetNewMeaning() {
+            Object.assign(newMeaning, {
                 transcription: '',
                 description: '',
                 translation: '',
                 examples: ''
-            };
-        },
+            });
+        }
         
-        resetNewCollection() {
-            this.newCollection = {
+        function resetNewCollection() {
+            Object.assign(newCollection, {
                 name: '',
                 description: ''
-            };
-        },
+            });
+        }
         
-        showNotification(message, type = 'success') {
-            // Clear any existing timeout
-            if (this.notification.timeout) {
-                clearTimeout(this.notification.timeout);
+        function showNotification(message, type = 'success') {
+            // Очистка существующего таймаута
+            if (notification.timeout) {
+                clearTimeout(notification.timeout);
             }
             
-            // Set notification data
-            this.notification.message = message;
-            this.notification.type = type;
-            this.notification.show = true;
+            // Установка данных уведомления
+            notification.message = message;
+            notification.type = type;
+            notification.show = true;
             
-            // Set timeout to hide notification
-            this.notification.timeout = setTimeout(() => {
-                this.notification.show = false;
+            // Установка таймаута для скрытия уведомления
+            notification.timeout = setTimeout(() => {
+                notification.show = false;
             }, 3000);
-        },
+        }
         
-        getErrorMessage(error) {
+        function getErrorMessage(error) {
             if (error.response && error.response.data && error.response.data.error) {
                 return error.response.data.error;
             }
             return error.message || 'Unknown error';
-        },
+        }
         
-        toggleWordDetails(word) {
-            if (this.selectedWordId === word.id) {
-                this.selectedWordId = null;
+        function toggleWordDetails(word) {
+            if (selectedWordId.value === word.id) {
+                selectedWordId.value = null;
             } else {
-                this.selectedWordId = word.id;
+                selectedWordId.value = word.id;
             }
         }
-    },
-    mounted() {
-        // Load words when the component is mounted
-        this.getAllWords();
         
-        // Load collections
-        this.getAllCollections();
-    },
-    watch: {
-        // When tab changes, load appropriate data
-        activeTab(newTab) {
+        // Отслеживание изменений
+        watch(activeTab, (newTab) => {
             if (newTab === 'words') {
-                this.getAllWords();
+                getAllWords();
             } else if (newTab === 'collections') {
-                this.getAllCollections();
+                getAllCollections();
             }
-        }
-    },
-    computed: {
-        filteredWords() {
-            return this.words;
-        }
+        });
+        
+        // Хуки жизненного цикла
+        onMounted(() => {
+            // Загрузка слов при монтировании компонента
+            getAllWords();
+            
+            // Загрузка коллекций
+            getAllCollections();
+        });
+        
+        // Возвращаем все необходимые данные и методы для использования в шаблоне
+        return {
+            // Состояния
+            title,
+            words,
+            searchTerm,
+            searched,
+            stats,
+            activeTab,
+            showAddWordForm,
+            showAddMeaningForm,
+            selectedWordId,
+            newWord,
+            newMeaning,
+            newExamples,
+            collections,
+            showAddCollectionForm,
+            newCollection,
+            activeCollection,
+            collectionWords,
+            wordToAdd,
+            filteredByCollection,
+            showEditCollection,
+            editCollection,
+            showWordCollectionsModal,
+            currentWord,
+            wordCollections,
+            availableCollections,
+            selectedCollection,
+            notification,
+            
+            // Методы
+            getAllWords,
+            searchWords,
+            addWord,
+            addMeaning,
+            addExample,
+            deleteWord,
+            deleteMeaning,
+            deleteExample,
+            getAllCollections,
+            addCollection,
+            showCollectionDetails,
+            closeCollectionDetails,
+            addWordToCollection,
+            removeWordFromCollection,
+            showEditCollectionForm,
+            closeEditCollection,
+            updateCollection,
+            deleteCollection,
+            showWordCollections,
+            closeWordCollections,
+            addToSelectedCollection,
+            removeFromCollection,
+            viewCollectionWords,
+            toggleWordDetails,
+            
+            // Вычисляемые свойства
+            filteredWords
+        };
     }
-}); 
+});
+
+app.mount('#app'); 

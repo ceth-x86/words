@@ -6,7 +6,7 @@
     <title>English Words Dictionary</title>
     <link rel="stylesheet" href="css/style.css">
     <!-- Vue.js CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue@3.2.47/dist/vue.global.js"></script>
     <!-- Axios for HTTP requests -->
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 </head>
@@ -47,8 +47,12 @@
             <div v-if="activeTab === 'words'">
                 <div class="stats" v-if="stats">
                     <p>Total Words: {{ stats.count }}</p>
-                    <p>Total Meanings: {{ stats.total_meanings }}</p>
-                    <p>Total Examples: {{ stats.total_examples }}</p>
+                    <p v-if="stats.total_meanings !== undefined">Total Meanings: {{ stats.total_meanings }}</p>
+                    <p v-if="stats.total_examples !== undefined">Total Examples: {{ stats.total_examples }}</p>
+                    <p v-if="filteredByCollection" class="filtered-note">
+                        Viewing words from collection: <strong>{{ filteredByCollection.name }}</strong>
+                        <button @click="getAllWords" class="small-button">Clear filter</button>
+                    </p>
                 </div>
 
                 <div class="add-word-container">
@@ -160,7 +164,8 @@
                     </div>
                 </div>
                 <div class="no-results" v-else>
-                    <p v-if="searched">No words found for "{{ searchTerm }}"</p>
+                    <p v-if="searched && filteredByCollection">No words found in collection "{{ filteredByCollection.name }}"</p>
+                    <p v-else-if="searched">No words found for "{{ searchTerm }}"</p>
                     <p v-else>No words in the dictionary. Add your first word!</p>
                 </div>
             </div>
