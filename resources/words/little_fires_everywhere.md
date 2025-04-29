@@ -1,5 +1,12 @@
 # Little fires everywhere
 
+- **groan** [grəʊn]
+  - **Meaning**: to make a long, low sound such as when expressing pain, unhappiness, etc
+    - **Translation**: стонать
+    - **Examples**:
+      - He collapsed, groaning with pain.
+      - The students groaned when the professor got out the exam booklets.
+
 - **procure** [prəˈkjʊə]
   - **Meaning**: to get by special effort
     - **Translation**: добывать

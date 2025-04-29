@@ -1,5 +1,19 @@
 # SkyEng
 
+- **chubby** [ˈʧʌbi]
+  - **Meaning**: sufficiently fat so as to have a pleasing fullness of figure
+    - **Translation**: пухлый
+    - **Examples**:
+      - Chubby lips and big eyes make her look like a doll.
+      - She was eleven years old and pretty in a chubby sort of way.
+
+- **lanky** [ˈlæŋki]
+  - **Meaning**: tall and thin
+    - **Translation**: долговязый
+    - **Examples**:
+      - Will Solace was more like a lanky cat stretched out in the sunshine.
+      - That lanky man is almost 2 metres in height.
+
 - **spill** [spɪl]
   - **Meaning**: to accidentally pour a liquid out of its container
     - **Translation**: проливать
