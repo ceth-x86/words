@@ -20,7 +20,6 @@
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    line-height: 1.6;
     color: var(--font-color);
     background-color: var(--light-gray);
     padding: 10px;
@@ -88,11 +87,11 @@ button:hover {
 .stats {
     display: flex;
     justify-content: space-around;
-    margin-bottom: 20px;
-    padding: 15px;
+    margin-bottom: 15px;
+    padding: 10px;
     background-color: white;
-    border-radius: var(--border-radius);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border-radius: var(--border-radius);    
+    font-size: 14px;
 }
 
 .filtered-note {
@@ -260,8 +259,7 @@ textarea {
     font-style: italic;
 }
 
-.description {
-}
+
 
 .translation {
     color: var(--success-color);
@@ -678,9 +676,14 @@ select {
     font-size: 14px;
 }
 
-.word-transcription {
-    color: var(--dark-gray);
+.word-transcription {    
     font-size: 12px;
+    margin-top: 1px;
+}
+
+.word-word {    
+    color: var(--primary-color);
+    font-size: 14px;
     margin-top: 1px;
 }
 
@@ -716,4 +719,140 @@ select {
     .actions-column {
         width: 25%;
     }
+}
+
+/* Updated styles for word list view */
+.words-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.word-item {
+    background-color: white;
+    border-radius: var(--border-radius);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin-bottom: 15px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.word-item:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+}
+
+.word-item.selected {
+    border-left: 4px solid var(--primary-color);
+}
+
+.word-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;    
+    background-color: var(--light-gray);
+}
+
+.word-title {
+    display: flex;
+    align-items: center;
+}
+
+.word-title h3 {
+    margin: 0;
+    color: var(--primary-color);
+    font-size: 18px;
+}
+
+.word-transcription {
+    margin-left: 10px;
+    color: var(--dark-gray);
+    font-size: 12px;
+}
+
+.word-actions {
+    display: flex;
+    gap: 5px;
+}
+
+.word-content {
+    padding: 15px;
+}
+
+.meanings-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.meaning-item {
+    border-bottom: 1px solid var(--medium-gray);
+    padding-bottom: 15px;
+}
+
+.meaning-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+/* Keep some existing styles that are still needed */
+.meaning-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.description {
+    font-size: 14px;
+}
+
+.translation {
+    flex: 1;
+    color: var(--font-color);
+    font-size: 14px;
+    text-align: right;
+    margin-right: 10px;
+}
+
+
+.example-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 0;
+}
+
+.example-item:last-child {
+    border-bottom: none;
+}
+
+.example-text {
+    font-size: 14px;
+    font-style: italic;
+    color: var(--dark-gray);
+}
+
+.add-example {
+    margin-top: 10px;
+    display: flex;
+    gap: 5px;
+}
+
+.example-input {
+    flex: 1;
+}
+
+/* Remove unused table styles */
+.words-table,
+.words-table th,
+.words-table td,
+.word-column,
+.meanings-column,
+.actions-column,
+.word-cell,
+.meanings-cell,
+.actions-cell {
+    /* Эти стили будут переопределены */
 } 

@@ -4,17 +4,17 @@ const app = Vue.createApp({
     setup() {
         const { ref, reactive, computed, watch, onMounted } = Vue;
         
-        // Основные состояния
+        // Core states
         const title = ref('English Words Dictionary');
         const words = ref([]);
         const searchTerm = ref('');
         const searched = ref(false);
         const stats = ref(null);
         
-        // Навигация по вкладкам
+        // Navigation between tabs
         const activeTab = ref('words');
         
-        // Данные вкладки слов
+        // Data for words tab
         const showAddWordForm = ref(false);
         const showAddMeaningForm = reactive({});
         const selectedWordId = ref(null);
@@ -33,7 +33,7 @@ const app = Vue.createApp({
         });
         const newExamples = reactive({});
         
-        // Данные вкладки коллекций
+        // Data for collections tab
         const collections = ref([]);
         const showAddCollectionForm = ref(false);
         const newCollection = reactive({
@@ -44,10 +44,10 @@ const app = Vue.createApp({
         const collectionWords = ref([]);
         const wordToAdd = ref('');
         
-        // Фильтр для слов по коллекции
+        // Filter for words by collection
         const filteredByCollection = ref(null);
         
-        // Модальное окно редактирования коллекции
+        // Modal window for editing collection
         const showEditCollection = ref(false);
         const editCollection = reactive({
             id: null,
@@ -55,14 +55,14 @@ const app = Vue.createApp({
             description: ''
         });
         
-        // Модальное окно коллекций слова
+        // Modal window for word collections
         const showWordCollectionsModal = ref(false);
         const currentWord = ref('');
         const wordCollections = ref([]);
         const availableCollections = ref([]);
         const selectedCollection = ref('');
         
-        // Уведомления
+        // Notifications
         const notification = reactive({
             show: false,
             message: '',
@@ -70,16 +70,16 @@ const app = Vue.createApp({
             timeout: null
         });
         
-        // Вычисляемые свойства
+        // Computed properties
         const filteredWords = computed(() => {
             return words.value;
         });
         
-        // API запросы для слов
+        // API requests for words
         function getAllWords() {
             searchTerm.value = '';
             searched.value = false;
-            filteredByCollection.value = null; // Очистка фильтра коллекции
+            filteredByCollection.value = null; // Clear collection filter
             
             axios.get(`${API_BASE_URL}/words`)
                 .then(response => {
@@ -102,7 +102,7 @@ const app = Vue.createApp({
             }
             
             searched.value = true;
-            filteredByCollection.value = null; // Очистка фильтра коллекции
+            filteredByCollection.value = null; // Clear collection filter
             
             axios.get(`${API_BASE_URL}/search?term=${encodeURIComponent(searchTerm.value)}`)
                 .then(response => {
@@ -123,10 +123,10 @@ const app = Vue.createApp({
             axios.post(`${API_BASE_URL}/words`, newWord)
                 .then(response => {
                     showNotification(`Word "${newWord.word}" added successfully`, 'success');
-                    // Очистка формы
+                    // Clear form
                     resetNewWord();
                     showAddWordForm.value = false;
-                    // Обновление списка слов
+                    // Update word list
                     getAllWords();
                 })
                 .catch(error => {
@@ -143,10 +143,10 @@ const app = Vue.createApp({
             axios.post(`${API_BASE_URL}/words/${encodeURIComponent(wordStr)}/meanings`, newMeaning)
                 .then(response => {
                     showNotification(`New meaning added to "${wordStr}"`, 'success');
-                    // Очистка формы
+                    // Clear form
                     resetNewMeaning();
                     showAddMeaningForm[response.data.word.id] = false;
-                    // Обновление списка слов
+                    // Update word list
                     getAllWords();
                 })
                 .catch(error => {
@@ -164,9 +164,9 @@ const app = Vue.createApp({
             axios.post(`${API_BASE_URL}/meanings/${meaningId}/examples`, { text: exampleText })
                 .then(response => {
                     showNotification('Example added successfully', 'success');
-                    // Очистка поля ввода
+                    // Clear input field
                     newExamples[meaningId] = '';
-                    // Обновление списка слов
+                    // Update word list
                     getAllWords();
                 })
                 .catch(error => {
@@ -182,7 +182,7 @@ const app = Vue.createApp({
             axios.delete(`${API_BASE_URL}/words/${encodeURIComponent(wordStr)}`)
                 .then(response => {
                     showNotification(`Word "${wordStr}" deleted successfully`, 'success');
-                    // Обновление списка слов
+                    // Update word list
                     getAllWords();
                 })
                 .catch(error => {
@@ -198,7 +198,7 @@ const app = Vue.createApp({
             axios.delete(`${API_BASE_URL}/meanings/${meaningId}`)
                 .then(response => {
                     showNotification('Meaning deleted successfully', 'success');
-                    // Обновление списка слов
+                    // Update word list
                     getAllWords();
                 })
                 .catch(error => {
@@ -210,7 +210,7 @@ const app = Vue.createApp({
             axios.delete(`${API_BASE_URL}/examples/${exampleId}`)
                 .then(response => {
                     showNotification('Example deleted successfully', 'success');
-                    // Обновление списка слов
+                    // Update word list
                     getAllWords();
                 })
                 .catch(error => {
@@ -218,7 +218,7 @@ const app = Vue.createApp({
                 });
         }
         
-        // API запросы для коллекций
+        // API requests for collections
         function getAllCollections() {
             axios.get(`${API_BASE_URL}/collections`)
                 .then(response => {
@@ -238,10 +238,10 @@ const app = Vue.createApp({
             axios.post(`${API_BASE_URL}/collections`, newCollection)
                 .then(response => {
                     showNotification(`Collection "${newCollection.name}" created successfully`, 'success');
-                    // Очистка формы
+                    // Clear form
                     resetNewCollection();
                     showAddCollectionForm.value = false;
-                    // Обновление коллекций
+                    // Update collections
                     getAllCollections();
                 })
                 .catch(error => {
@@ -276,7 +276,7 @@ const app = Vue.createApp({
                 .then(response => {
                     showNotification(`Word "${wordToAdd.value}" added to collection`, 'success');
                     wordToAdd.value = '';
-                    // Обновление деталей коллекции
+                    // Update collection details
                     showCollectionDetails(activeCollection.value.id);
                 })
                 .catch(error => {
@@ -292,7 +292,7 @@ const app = Vue.createApp({
             axios.delete(`${API_BASE_URL}/collections/${activeCollection.value.id}/words/${encodeURIComponent(wordStr)}`)
                 .then(response => {
                     showNotification(`Word "${wordStr}" removed from collection`, 'success');
-                    // Обновление деталей коллекции
+                    // Update collection details
                     showCollectionDetails(activeCollection.value.id);
                 })
                 .catch(error => {
@@ -327,7 +327,7 @@ const app = Vue.createApp({
                 .then(response => {
                     showNotification('Collection updated successfully', 'success');
                     closeEditCollection();
-                    // Обновление коллекций
+                    // Update collections
                     getAllCollections();
                 })
                 .catch(error => {
@@ -343,7 +343,7 @@ const app = Vue.createApp({
             axios.delete(`${API_BASE_URL}/collections/${collectionId}`)
                 .then(response => {
                     showNotification('Collection deleted successfully', 'success');
-                    // Обновление коллекций
+                    // Update collections
                     getAllCollections();
                 })
                 .catch(error => {
@@ -351,16 +351,16 @@ const app = Vue.createApp({
                 });
         }
         
-        // Интеграция слов и коллекций
+        // Integration between words and collections
         function showWordCollections(wordStr) {
             currentWord.value = wordStr;
             showWordCollectionsModal.value = true;
             
-            // Получение коллекций для этого слова
+            // Get collections for this word
             axios.get(`${API_BASE_URL}/words/${encodeURIComponent(wordStr)}/collections`)
                 .then(response => {
                     wordCollections.value = response.data.collections;
-                    // Получение всех коллекций для определения доступных
+                    // Get all collections to determine available ones
                     return axios.get(`${API_BASE_URL}/collections`);
                 })
                 .then(response => {
@@ -392,7 +392,7 @@ const app = Vue.createApp({
             axios.post(`${API_BASE_URL}/collections/${selectedCollection.value}/words/${encodeURIComponent(currentWord.value)}`)
                 .then(response => {
                     showNotification(`Word added to collection successfully`, 'success');
-                    // Обновление коллекций для этого слова
+                    // Update collections for this word
                     showWordCollections(currentWord.value);
                 })
                 .catch(error => {
@@ -404,7 +404,7 @@ const app = Vue.createApp({
             axios.delete(`${API_BASE_URL}/collections/${collectionId}/words/${encodeURIComponent(currentWord.value)}`)
                 .then(response => {
                     showNotification(`Word removed from collection successfully`, 'success');
-                    // Обновление коллекций для этого слова
+                    // Update collections for this word
                     showWordCollections(currentWord.value);
                 })
                 .catch(error => {
@@ -413,22 +413,22 @@ const app = Vue.createApp({
         }
         
         function viewCollectionWords(collection) {
-            // Получение слов из коллекции
+            // Get words from collection
             axios.get(`${API_BASE_URL}/collections/${collection.id}`)
                 .then(response => {
-                    // Переключение на вкладку слов
+                    // Switch to words tab
                     activeTab.value = 'words';
                     
-                    // Сохранение деталей коллекции для фильтрации
+                    // Save collection details for filtering
                     filteredByCollection.value = {
                         id: collection.id,
                         name: collection.name
                     };
                     
-                    // Получение полной информации о каждом слове в коллекции
+                    // Get full information about each word in the collection
                     const wordsFromCollection = response.data.words;
                     if (wordsFromCollection && wordsFromCollection.length > 0) {
-                        // Получение полной информации для каждого слова
+                        // Get full information for each word
                         const wordPromises = wordsFromCollection.map(word => 
                             axios.get(`${API_BASE_URL}/words/${encodeURIComponent(word.word)}`)
                                 .then(resp => resp.data.word)
@@ -438,13 +438,13 @@ const app = Vue.createApp({
                             .then(wordDetails => {
                                 words.value = wordDetails;
                                 
-                                // Обновление статистики
+                                // Update statistics
                                 stats.value = {
                                     count: words.value.length,
                                     filtered_by: collection.name
                                 };
                                 
-                                // Отметка для отображения соответствующего сообщения
+                                // Mark for displaying corresponding message
                                 searchTerm.value = '';
                                 searched.value = true;
                             })
@@ -452,7 +452,7 @@ const app = Vue.createApp({
                                 showNotification(`Error loading word details: ${getErrorMessage(error)}`, 'error');
                             });
                     } else {
-                        // Нет слов в коллекции
+                        // No words in collection
                         words.value = [];
                         stats.value = {
                             count: 0,
@@ -467,7 +467,7 @@ const app = Vue.createApp({
                 });
         }
         
-        // Вспомогательные функции для UI
+        // Helper functions for UI
         function resetNewWord() {
             Object.assign(newWord, {
                 word: '',
@@ -495,17 +495,17 @@ const app = Vue.createApp({
         }
         
         function showNotification(message, type = 'success') {
-            // Очистка существующего таймаута
+            // Clear existing timeout
             if (notification.timeout) {
                 clearTimeout(notification.timeout);
             }
             
-            // Установка данных уведомления
+            // Set notification data
             notification.message = message;
             notification.type = type;
             notification.show = true;
             
-            // Установка таймаута для скрытия уведомления
+            // Set timeout for hiding notification
             notification.timeout = setTimeout(() => {
                 notification.show = false;
             }, 3000);
@@ -526,7 +526,7 @@ const app = Vue.createApp({
             }
         }
         
-        // Отслеживание изменений
+        // Track changes
         watch(activeTab, (newTab) => {
             if (newTab === 'words') {
                 getAllWords();
@@ -535,18 +535,18 @@ const app = Vue.createApp({
             }
         });
         
-        // Хуки жизненного цикла
+        // Lifecycle hooks
         onMounted(() => {
-            // Загрузка слов при монтировании компонента
+            // Load words on component mount
             getAllWords();
             
-            // Загрузка коллекций
+            // Load collections
             getAllCollections();
         });
         
-        // Возвращаем все необходимые данные и методы для использования в шаблоне
+        // Return all necessary data and methods for use in template
         return {
-            // Состояния
+            // States
             title,
             words,
             searchTerm,
@@ -575,7 +575,7 @@ const app = Vue.createApp({
             selectedCollection,
             notification,
             
-            // Методы
+            // Methods
             getAllWords,
             searchWords,
             addWord,
@@ -601,7 +601,7 @@ const app = Vue.createApp({
             viewCollectionWords,
             toggleWordDetails,
             
-            // Вычисляемые свойства
+            // Computed properties
             filteredWords
         };
     }
